@@ -330,31 +330,6 @@
             color: var(--primary);
         }
 
-        .train-info {
-            font-size: 11px;
-            line-height: 1.6;
-            color: #595959;
-        }
-        .train-info .train-header {
-            font-weight: 600;
-            color: #262626;
-            margin-bottom: 2px;
-        }
-        .train-info .train-row {
-            padding: 1px 0;
-        }
-        .train-info .train-no {
-            color: #1677ff;
-            font-weight: 600;
-        }
-        .train-info .train-rec {
-            color: #52c41a;
-            font-weight: 500;
-        }
-        .train-info .train-alt {
-            color: #999;
-        }
-
         .inspector-dropdown {
             position: absolute;
             background: #fff;
@@ -756,7 +731,6 @@
                             <th>会议举办城市</th>
                             <th class="check-cell">免检</th>
                             <th>检查员</th>
-                            <th style="min-width:180px;">🚄 动车推荐</th>
                         </tr>
                     </thead>
                     <tbody id="scheduleBody">
@@ -1246,32 +1220,7 @@ function renderTable() {
             html += `<td style="position:relative;"><span class="inspector-tag selectable" onclick="showInspectorDropdown(${m.id}, this)">+ 分配检查员</span></td>`;
         }
 
-        // Train recommendation column
-        html += '<td>';
-        if (m.assignedInspector !== null) {
-            const ins = INSPECTORS.find(i => i.id === m.assignedInspector);
-            if (ins) {
-                const otherAssignments = state.assignments.filter(a => a.inspectorId === ins.id);
-                if (otherAssignments.length >= 2 && ins.name !== '周宁') {
-                    const otherMgr = otherAssignments.find(a => a.managerId !== m.id);
-                    if (otherMgr) {
-                        const om = state.managers[otherMgr.managerId];
-                        const rec = getTrainRecommendation(m.city, om.city);
-                        if (rec) {
-                            const freeDay = getTrainDayNames(m, om);
-                            const recTrain = rec.trains[0];
-                            html += `<div class="train-info">`;
-                            html += `<div class="train-header">🚄 ${freeDay || '空闲日'}</div>`;
-                            html += `<div class="train-row"><span class="train-no">${recTrain.no}</span> ${recTrain.from} ${recTrain.dep}→${recTrain.to} ${recTrain.arr}（${recTrain.dur}）</div>`;
-                            html += `</div>`;
-                        } else {
-                            html += '<span style="color:#bbb;font-size:11px;">暂无车次数据</span>';
-                        }
-                    }
-                }
-            }
-        }
-        html += '</td>';
+        // Inspector column
 
         tr.innerHTML = html;
         tbody.appendChild(tr);
@@ -1649,11 +1598,24 @@ function autoAssign() {
                 continue;
             }
 
-            // Pick best: prefer nearest city, then prefer inspector with more remaining capacity
+            // Pick best: prefer nearest city, strong adjacency priority
             available.sort((a, b) => {
                 const distA = getDistance(a.city, manager.city);
                 const distB = getDistance(b.city, manager.city);
-                if (Math.abs(distA - distB) > 200) return distA - distB;
+                // Strong distance priority: 100km threshold
+                if (Math.abs(distA - distB) > 100) return distA - distB;
+                // If one inspector already has an assignment, prefer the one whose
+                // existing city is closer to this manager (adjacent grouping)
+                if (usage[a.id].cities.length > 0 || usage[b.id].cities.length > 0) {
+                    const clusterA = usage[a.id].cities.length > 0
+                        ? Math.min(...usage[a.id].cities.map(c => getDistance(c, manager.city)))
+                        : distA;
+                    const clusterB = usage[b.id].cities.length > 0
+                        ? Math.min(...usage[b.id].cities.map(c => getDistance(c, manager.city)))
+                        : distB;
+                    return clusterA - clusterB;
+                }
+                // Fallback: prefer inspector with more remaining capacity
                 const capA = a.maxRegions - usage[a.id].count;
                 const capB = b.maxRegions - usage[b.id].count;
                 return capB - capA;
@@ -1751,23 +1713,6 @@ function renderAssignmentDetail() {
             const dayStr = m.days.map(d => DAY_NAMES[d-1]).join('、');
             html += `<div class="a-detail">📍 ${m.name}（${m.city}）— ${dayStr}</div>`;
         });
-        // Add train recommendation if inspector has 2+ assignments
-        const inspectorName = INSPECTORS.find(i => i.id === inspectorId).name;
-        if (assignments.length >= 2 && inspectorName !== '周宁') {
-            const mgr1 = state.managers[assignments[0].managerId];
-            const mgr2 = state.managers[assignments[1].managerId];
-            const rec = getTrainRecommendation(mgr1.city, mgr2.city);
-            if (rec) {
-                const freeDay = getTrainDayNames(mgr1, mgr2);
-                const t = rec.trains[0];
-                html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e8e8e8;font-size:11px;color:#595959;">`;
-                html += `<div style="font-weight:600;color:#262626;">🚄 ${freeDay} 中转</div>`;
-                html += `<div><span style="color:#1677ff;font-weight:600;">${t.no}</span> ${t.from} ${t.dep}→${t.to} ${t.arr}（${t.dur}）</div>`;
-                html += `</div>`;
-            } else {
-                html += `<div style="margin-top:4px;font-size:11px;color:#bbb;">暂无车次数据</div>`;
-            }
-        }
         html += `</div>`;
     });
 
