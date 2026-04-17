@@ -1,0 +1,2005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大区培训检查排期系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --primary: #1677ff;
+            --success: #52c41a;
+            --warning: #faad14;
+            --danger: #ff4d4f;
+            --text: #1f1f1f;
+            --text-secondary: #666;
+            --border: #e8e8e8;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --radius: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            padding: 24px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            font-size: 13px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 16px 24px;
+            box-shadow: var(--shadow);
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat-card .value.blue { color: var(--primary); }
+        .stat-card .value.green { color: var(--success); }
+        .stat-card .value.orange { color: var(--warning); }
+        .stat-card .value.red { color: var(--danger); }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover { background: #4096ff; }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover { background: #73d13d; }
+
+        .btn-outline {
+            background: white;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover { background: #ff7875; }
+
+        .info-banner {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #8c6900;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-banner.warn {
+            background: #fff2f0;
+            border-color: #ffccc7;
+            color: #a8071a;
+        }
+
+        .info-banner.ok {
+            background: #f6ffed;
+            border-color: #b7eb8f;
+            color: #389e0d;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-body { padding: 0; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            background: #fafafa;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+
+        tr:hover { background: #fafbfc; }
+
+        tr.exempt {
+            background: #f6ffed !important;
+            opacity: 0.75;
+        }
+
+        tr.exempt td.name-cell {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        .check-cell {
+            text-align: center;
+            width: 50px;
+        }
+
+        .check-cell input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .schedule-cell {
+            text-align: center;
+            font-weight: 600;
+            width: 55px;
+        }
+
+        .schedule-cell.active {
+            background: #e6f4ff;
+            color: var(--primary);
+            border-radius: 4px;
+            padding: 4px 0;
+        }
+
+        .schedule-cell:not(.active) {
+            color: transparent;
+        }
+
+        .schedule-cell:hover:not(.active) {
+            color: #ccc;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+
+        .city-tag {
+            display: inline-block;
+            background: #f0f5ff;
+            color: #2f54eb;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .inspector-tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .inspector-tag.assigned {
+            background: #e6f4ff;
+            color: var(--primary);
+        }
+
+        .inspector-tag.unassigned {
+            background: #fff1f0;
+            color: var(--danger);
+        }
+
+        .inspector-tag.fixed-exempt {
+            background: #f6ffed;
+            color: var(--success);
+        }
+
+        .inspector-tag.manual {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .inspector-tag.manual:hover {
+            opacity: 0.85;
+            filter: brightness(0.95);
+        }
+
+        .inspector-tag.manual::after {
+            content: '手动';
+            position: absolute;
+            top: -6px;
+            right: -4px;
+            background: #faad14;
+            color: #fff;
+            font-size: 9px;
+            padding: 0 3px;
+            border-radius: 3px;
+            line-height: 14px;
+        }
+
+        .inspector-tag.selectable {
+            cursor: pointer;
+            border: 1px dashed var(--border);
+            background: #fafafa;
+        }
+
+        .inspector-tag.selectable:hover {
+            border-color: var(--primary);
+            background: #e6f4ff;
+            color: var(--primary);
+        }
+
+        .train-info {
+            font-size: 11px;
+            line-height: 1.6;
+            color: #595959;
+        }
+        .train-info .train-header {
+            font-weight: 600;
+            color: #262626;
+            margin-bottom: 2px;
+        }
+        .train-info .train-row {
+            padding: 1px 0;
+        }
+        .train-info .train-no {
+            color: #1677ff;
+            font-weight: 600;
+        }
+        .train-info .train-rec {
+            color: #52c41a;
+            font-weight: 500;
+        }
+        .train-info .train-alt {
+            color: #999;
+        }
+
+        .inspector-dropdown {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.1);
+            z-index: 1000;
+            min-width: 180px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+
+        .inspector-dropdown .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.15s;
+        }
+
+        .inspector-dropdown .dropdown-item:hover {
+            background: #e6f4ff;
+        }
+
+        .inspector-dropdown .dropdown-item.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .inspector-dropdown .dropdown-item .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .inspector-dropdown .dropdown-item .info {
+            flex: 1;
+        }
+
+        .inspector-dropdown .dropdown-item .capacity {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .inspector-dropdown .dropdown-item .capacity.full {
+            color: var(--danger);
+        }
+
+        .inspector-dropdown .dropdown-clear {
+            display: block;
+            width: 100%;
+            text-align: center;
+            padding: 8px;
+            font-size: 12px;
+            color: var(--danger);
+            cursor: pointer;
+            border-top: 1px solid #f0f0f0;
+            transition: background 0.15s;
+        }
+
+        .inspector-dropdown .dropdown-clear:hover {
+            background: #fff1f0;
+        }
+
+        .exempt-select {
+            padding: 2px 6px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        /* Inspector Panel */
+        .inspector-list {
+            padding: 16px;
+        }
+
+        .inspector-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            transition: background 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .inspector-item:hover {
+            background: #fafbfc;
+            border-color: var(--border);
+        }
+
+        .inspector-item.busy {
+            opacity: 0.5;
+        }
+
+        .inspector-item.overloaded {
+            border-color: var(--danger);
+            background: #fff2f0;
+        }
+
+        .inspector-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .inspector-info { flex: 1; }
+
+        .inspector-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .inspector-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .inspector-capacity {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .capacity-ok {
+            background: #f6ffed;
+            color: var(--success);
+        }
+
+        .capacity-full {
+            background: #fff2f0;
+            color: var(--danger);
+        }
+
+        .capacity-free {
+            background: #e6f4ff;
+            color: var(--primary);
+        }
+
+        /* Assignment detail */
+        .assignment-detail {
+            padding: 16px;
+        }
+
+        .assignment-block {
+            background: #fafafa;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--primary);
+        }
+
+        .assignment-block.free-exempt {
+            border-left-color: var(--success);
+            background: #f6ffed;
+        }
+
+        .assignment-block .a-title {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .assignment-block .a-detail {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* No assignment */
+        .no-assignment {
+            text-align: center;
+            padding: 40px 20px;
+            color: #ccc;
+        }
+
+        .no-assignment .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        /* Log panel */
+        .log-panel {
+            margin-top: 20px;
+        }
+
+        .log-content {
+            padding: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: "SF Mono", Menlo, monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .log-entry .time {
+            color: #999;
+            margin-right: 8px;
+        }
+
+        .log-entry.success { color: var(--success); }
+        .log-entry.warn { color: var(--warning); }
+        .log-entry.error { color: var(--danger); }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90vw;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body { padding: 24px; }
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            text-align: right;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #999;
+            padding: 4px;
+        }
+
+        .close-btn:hover { color: var(--text); }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding: 8px 0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            z-index: 2000;
+            transform: translateX(120%);
+            transition: transform 0.3s;
+        }
+
+        .toast.show { transform: translateX(0); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.warning { background: var(--warning); }
+
+        .badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .badge-red { background: #fff1f0; color: #cf1322; }
+        .badge-green { background: #f6ffed; color: #389e0d; }
+        .badge-blue { background: #e6f4ff; color: #1677ff; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>📋 大区培训检查排期系统</h1>
+        <div class="subtitle">检查员自动分配 · 免检动态管理 · 一键导出</div>
+    </div>
+    <div style="font-size:12px; opacity:0.6;" id="currentTime"></div>
+</div>
+
+<div class="container">
+    <!-- Stats -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="label">大区经理总数</div>
+            <div class="value blue" id="statTotal">22</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">需要检查</div>
+            <div class="value orange" id="statNeedCheck">22</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">已免检</div>
+            <div class="value green" id="statExempt">2</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">免检剩余名额</div>
+            <div class="value" id="statExemptRemain" style="color:#8c6900;">5</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">未分配检查员</div>
+            <div class="value red" id="statUnassigned">22</div>
+        </div>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="info-banner" id="infoBanner">
+        ⚡ 点击表格中的「免检」列勾选/取消免检，然后点击「自动分配检查员」生成方案
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <button class="btn btn-success" onclick="autoAssign()">🔄 自动分配检查员</button>
+        <button class="btn btn-primary" onclick="exportExcel()">📥 导出 Excel</button>
+        <button class="btn btn-outline" onclick="resetAll()">🔃 重置所有</button>
+        <button class="btn btn-outline" onclick="showDraftPlan()" style="border-color:#faad14;color:#faad14;">💡 拟定方案</button>
+        <div style="flex:1;"></div>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#e6f4ff;"></div> 培训日</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f6ffed;"></div> 免检</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#fff2f0;"></div> 未分配</div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+        <!-- Schedule Table -->
+        <div class="card">
+            <div class="card-header">
+                <span>📅 大区培训排期表</span>
+                <span style="font-size:12px; font-weight:400; color:#999;" id="tableNote">（王瑶、付钟庆为内定免检）</span>
+            </div>
+            <div class="card-body" style="overflow-x:auto;">
+                <table id="scheduleTable">
+                    <thead>
+                        <tr>
+                            <th>组别</th>
+                            <th>大区经理</th>
+                            <th class="schedule-cell">周一<br><span style="font-weight:400;font-size:11px;color:#999">5/11</span></th>
+                            <th class="schedule-cell">周二<br><span style="font-weight:400;font-size:11px;color:#999">5/12</span></th>
+                            <th class="schedule-cell">周三<br><span style="font-weight:400;font-size:11px;color:#999">5/13</span></th>
+                            <th class="schedule-cell">周四<br><span style="font-weight:400;font-size:11px;color:#999">5/14</span></th>
+                            <th class="schedule-cell">周五<br><span style="font-weight:400;font-size:11px;color:#999">5/15</span></th>
+                            <th>会议举办城市</th>
+                            <th class="check-cell">免检</th>
+                            <th>检查员</th>
+                            <th style="min-width:180px;">🚄 动车推荐</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Inspector Panel -->
+        <div>
+            <div class="card">
+                <div class="card-header">
+                    <span>👤 检查员状态</span>
+                </div>
+                <div class="inspector-list" id="inspectorList">
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:16px;">
+                <div class="card-header">
+                    <span>📝 分配详情</span>
+                </div>
+                <div id="assignmentDetail">
+                    <div class="no-assignment">
+                        <div class="icon">📋</div>
+                        <div>点击「自动分配检查员」查看分配方案</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log -->
+    <div class="card log-panel">
+        <div class="card-header">
+            <span>📜 分配日志</span>
+            <button class="btn btn-outline" style="padding:4px 12px; font-size:12px;" onclick="clearLog()">清空</button>
+        </div>
+        <div class="log-content" id="logContent">
+            <div class="log-entry"><span class="time">--:--</span> 系统就绪，等待操作...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== DATA ====================
+
+const INSPECTORS = [
+    { id: 0, name: '周宁', maxRegions: 2, type: 'flexible', color: '#1677ff' }, // 灵活：可半天/1天，时间可冲突
+    { id: 1, name: '王一扬', maxRegions: 2, type: 'full', color: '#722ed1' },
+    { id: 2, name: '苑玉威', maxRegions: 2, type: 'full', color: '#13c2c2' },
+    { id: 3, name: '王九洋', maxRegions: 2, type: 'full', color: '#eb2f96' },
+    { id: 4, name: '夏月', maxRegions: 2, type: 'full', color: '#fa8c16' },
+    { id: 5, name: '侯琦', maxRegions: 2, type: 'full', color: '#52c41a' },
+    { id: 6, name: '方凯', maxRegions: 1, type: 'limited', color: '#2f54eb' },
+    { id: 7, name: '王瑶', maxRegions: 1, type: 'limited', color: '#f5222d', selfTrainingDays: [1,2] },
+    { id: 8, name: '付钟庆', maxRegions: 1, type: 'limited', color: '#fa541c', selfTrainingDays: [1,2] },
+    { id: 9, name: '徐老师', maxRegions: 1, type: 'limited', color: '#a0d911' },
+    { id: 10, name: '郭士龙', maxRegions: 2, type: 'full', color: '#1890ff' }
+];
+
+const FIXED_EXEMPT = ['王瑶', '付钟庆'];
+const MAX_EXEMPT = 7;
+
+const DEFAULT_DAYS = {};
+const MANAGERS = [
+    { group: '1组', name: '付钟庆', days: [1,2], city: '北京', responsibleCities: '北京' },
+    { group: '1组', name: '王世爽', days: [3,4], city: '北京', responsibleCities: '北京' },
+    { group: '2组', name: '肖敏', days: [2,3], city: '天津', responsibleCities: '天津、廊坊、沧州' },
+    { group: '2组', name: '王瑶', days: [1,2], city: '济南', responsibleCities: '东营、德州、济南、淄博、滨州、聊城、莱芜' },
+    { group: '3组', name: '张国良', days: [1,2], city: '大连', responsibleCities: '东港、丹东、大连、庄河、朝阳、盘锦、营口、葫芦岛、赤峰、锦州' },
+    { group: '3组', name: '刘海英', days: [4,5], city: '沈阳', responsibleCities: '抚顺、本溪、桓仁、沈阳、海城、辽阳、通辽、铁岭、阜新、鞍山' },
+    { group: '4组', name: '杨福强', days: [1,2], city: '长春', responsibleCities: '乌兰浩特、吉林、四平、安图、延吉、敦化、松原、白城、白山、蛟河、辽源、通化、长春' },
+    { group: '4组', name: '李肖', days: [4,5], city: '哈尔滨', responsibleCities: '七台河、东宁、伊春、佳木斯、双鸭山、呼伦贝尔、哈尔滨、大庆、牡丹江、绥化、肇东、鸡西、鹤岗、黑河、齐齐哈尔' },
+    { group: '5组', name: '刘现勇', days: [4,5], city: '郑州', responsibleCities: '周口、商丘、安阳、开封、新乡、濮阳、许昌、郑州、鹤壁' },
+    { group: '5组', name: '赵静', days: [1,2], city: '武汉', responsibleCities: '信阳、十堰、南阳、宜昌、平顶山、武汉、漯河、荆州、襄阳、随州、驻马、黄石' },
+    { group: '6组', name: '白高朋', days: [1,2], city: '太原', responsibleCities: '三门峡、临汾、乌兰察布、吕梁、呼和浩特、大同、太原、张家口、忻州、晋中、晋城、朔州、洛阳、焦作、运城、郑州、锡林浩特、长治、阳泉' },
+    { group: '6组', name: '张贺', days: [4,5], city: '西安', responsibleCities: '乌海、包头、咸阳、商洛、安康、宝鸡、巴彦淖尔、延安、榆林、汉中、渭南、西安、鄂尔多斯' },
+    { group: '7组', name: '周振华', days: [1,2], city: '上海', responsibleCities: '上海、太仓、昆山、苏州' },
+    { group: '7组', name: '孙鸿蕊', days: [4,5], city: '南京', responsibleCities: '丹阳、南京、常州、扬中、无锡、江阴、溧阳、镇江' },
+    { group: '8组', name: '姜海艳', days: [1,2], city: '宁波', responsibleCities: '丽水、台州、嘉兴、宁波、温州、绍兴、舟山、衢州' },
+    { group: '8组', name: '沈彦伟', days: [4,5], city: '杭州', responsibleCities: '杭州、湖州、金华' },
+    { group: '9组', name: '陈双双', days: [4,5], city: '合肥', responsibleCities: '亳州、六安、合肥、安庆、宣城、宿州、池州、淮北、淮南、滁州、芜湖、蚌埠、铜陵、阜阳、马鞍山、黄山' },
+    { group: '9组', name: '倪萍萍', days: [1,2], city: '徐州', responsibleCities: '兴化、南通、如皋、宿迁、常熟、张家港、徐州、扬州、泰兴、泰州、淮安、盐城、苏州、连云港' },
+    { group: '10组', name: '刘瑞新', days: [1,2], city: '天津', responsibleCities: '唐山、天津、承德、滦州、秦皇岛、迁安、遵化' },
+    { group: '10组', name: '孙凤现', days: [4,5], city: '保定', responsibleCities: '任丘、保定、沧州、石家庄、衡水、邢台、邯郸' },
+    { group: '11组', name: '田玲', days: [1,2], city: '青岛', responsibleCities: '威海、潍坊、烟台、青岛、龙口' },
+    { group: '11组', name: '袁百臣', days: [4,5], city: '济宁', responsibleCities: '临沂、日照、枣庄、泰安、济宁、潍坊、菏泽、青岛、高密' },
+];
+// Save default days for reset
+MANAGERS.forEach(m => { DEFAULT_DAYS[m.name] = [...m.days]; });
+
+// Distance matrix between cities (approximate in km, simplified)
+// Train schedule data: from → to → [trains]
+const TRAIN_DATA = {
+    '北京-太原': [
+        {no:'G621', from:'北京丰台', to:'太原南', dep:'07:12', arr:'10:05', dur:'2h53m'},
+        {no:'G605', from:'北京西', to:'太原南', dep:'11:22', arr:'14:07', dur:'2h45m'}
+    ],
+    '太原-北京': [
+        {no:'G606', from:'太原南', to:'北京西', dep:'07:40', arr:'10:28', dur:'2h48m'},
+        {no:'G614', from:'太原南', to:'北京西', dep:'14:55', arr:'17:45', dur:'2h50m'}
+    ],
+    '北京-长春': [
+        {no:'G901', from:'北京朝阳', to:'长春西', dep:'08:00', arr:'11:36', dur:'3h36m'},
+        {no:'G913', from:'北京朝阳', to:'长春', dep:'09:55', arr:'13:53', dur:'4h01m'}
+    ],
+    '长春-北京': [
+        {no:'G902', from:'长春西', to:'北京朝阳', dep:'12:30', arr:'16:08', dur:'3h38m'},
+        {no:'G914', from:'长春', to:'北京朝阳', dep:'14:35', arr:'18:30', dur:'3h55m'}
+    ],
+    '北京-天津': [
+        {no:'G8901', from:'北京南', to:'天津', dep:'08:00', arr:'08:35', dur:'0h35m'},
+        {no:'G8917', from:'北京南', to:'天津西', dep:'09:15', arr:'09:55', dur:'0h40m'}
+    ],
+    '天津-北京': [
+        {no:'G8902', from:'天津', to:'北京南', dep:'08:55', arr:'09:30', dur:'0h35m'},
+        {no:'G8918', from:'天津西', to:'北京南', dep:'10:15', arr:'10:55', dur:'0h40m'}
+    ],
+    '天津-保定': [
+        {no:'G363', from:'天津西', to:'保定东', dep:'07:46', arr:'08:55', dur:'1h09m'},
+        {no:'G1701', from:'天津西', to:'保定东', dep:'09:08', arr:'10:15', dur:'1h10m'}
+    ],
+    '保定-天津': [
+        {no:'G364', from:'保定东', to:'天津西', dep:'11:10', arr:'12:18', dur:'1h08m'},
+        {no:'G1702', from:'保定东', to:'天津西', dep:'14:30', arr:'15:38', dur:'1h08m'}
+    ],
+    '天津-济南': [
+        {no:'G1705', from:'天津西', to:'济南西', dep:'07:30', arr:'09:10', dur:'1h40m'},
+        {no:'G1711', from:'天津西', to:'济南西', dep:'10:00', arr:'11:35', dur:'1h35m'}
+    ],
+    '济南-天津': [
+        {no:'G1706', from:'济南西', to:'天津西', dep:'09:40', arr:'11:20', dur:'1h40m'},
+        {no:'G1712', from:'济南西', to:'天津西', dep:'13:00', arr:'14:35', dur:'1h35m'}
+    ],
+    '天津-太原': [
+        {no:'G2609', from:'天津西', to:'太原南', dep:'07:15', arr:'10:52', dur:'3h37m'},
+        {no:'G2613', from:'天津西', to:'太原南', dep:'12:30', arr:'16:08', dur:'3h38m'}
+    ],
+    '太原-天津': [
+        {no:'G2610', from:'太原南', to:'天津西', dep:'08:20', arr:'11:58', dur:'3h38m'},
+        {no:'G2614', from:'太原南', to:'天津西', dep:'14:00', arr:'17:38', dur:'3h38m'}
+    ],
+    '太原-西安': [
+        {no:'G3139', from:'太原南', to:'西安北', dep:'07:22', arr:'10:19', dur:'2h57m'},
+        {no:'D2507', from:'太原南', to:'西安北', dep:'08:16', arr:'11:20', dur:'3h04m'}
+    ],
+    '西安-太原': [
+        {no:'G3140', from:'西安北', to:'太原南', dep:'10:45', arr:'13:42', dur:'2h57m'},
+        {no:'D2508', from:'西安北', to:'太原南', dep:'13:50', arr:'16:55', dur:'3h05m'}
+    ],
+    '太原-郑州': [
+        {no:'G3131', from:'太原南', to:'郑州东', dep:'07:00', arr:'09:32', dur:'2h32m'},
+        {no:'D3351', from:'太原南', to:'郑州东', dep:'08:30', arr:'11:15', dur:'2h45m'}
+    ],
+    '郑州-太原': [
+        {no:'G3132', from:'郑州东', to:'太原南', dep:'10:10', arr:'12:42', dur:'2h32m'},
+        {no:'D3352', from:'郑州东', to:'太原南', dep:'14:00', arr:'16:45', dur:'2h45m'}
+    ],
+    '郑州-武汉': [
+        {no:'G71', from:'郑州东', to:'武汉', dep:'09:26', arr:'11:01', dur:'1h38m'},
+        {no:'G93', from:'郑州东', to:'武汉', dep:'11:24', arr:'12:58', dur:'1h37m'}
+    ],
+    '武汉-郑州': [
+        {no:'G72', from:'武汉', to:'郑州东', dep:'11:30', arr:'13:08', dur:'1h38m'},
+        {no:'G94', from:'武汉', to:'郑州东', dep:'13:25', arr:'15:02', dur:'1h37m'}
+    ],
+    '郑州-西安': [
+        {no:'G2201', from:'郑州东', to:'西安北', dep:'07:11', arr:'09:31', dur:'2h20m'},
+        {no:'G87', from:'郑州东', to:'西安北', dep:'09:24', arr:'11:19', dur:'1h58m'}
+    ],
+    '西安-郑州': [
+        {no:'G2202', from:'西安北', to:'郑州东', dep:'10:05', arr:'12:28', dur:'2h23m'},
+        {no:'G88', from:'西安北', to:'郑州东', dep:'14:00', arr:'15:55', dur:'1h55m'}
+    ],
+    '武汉-南京': [
+        {no:'G1722', from:'武汉', to:'南京南', dep:'08:00', arr:'10:27', dur:'2h27m'},
+        {no:'G678', from:'武汉', to:'南京南', dep:'13:30', arr:'16:22', dur:'2h52m'}
+    ],
+    '南京-武汉': [
+        {no:'G1723', from:'南京南', to:'武汉', dep:'11:00', arr:'13:28', dur:'2h28m'},
+        {no:'G679', from:'南京南', to:'武汉', dep:'17:00', arr:'19:30', dur:'2h30m'}
+    ],
+    '上海-南京': [
+        {no:'G1802', from:'上海虹桥', to:'南京南', dep:'06:15', arr:'07:42', dur:'1h27m'},
+        {no:'G102', from:'上海虹桥', to:'南京南', dep:'06:37', arr:'07:58', dur:'1h21m'}
+    ],
+    '南京-上海': [
+        {no:'G1803', from:'南京南', to:'上海虹桥', dep:'08:05', arr:'09:32', dur:'1h27m'},
+        {no:'G103', from:'南京南', to:'上海虹桥', dep:'08:30', arr:'09:51', dur:'1h21m'}
+    ],
+    '上海-宁波': [
+        {no:'G7501', from:'上海虹桥', to:'宁波', dep:'07:02', arr:'09:22', dur:'2h20m'},
+        {no:'G7517', from:'上海虹桥', to:'宁波', dep:'10:05', arr:'12:18', dur:'2h13m'}
+    ],
+    '宁波-上海': [
+        {no:'G7502', from:'宁波', to:'上海虹桥', dep:'09:55', arr:'12:10', dur:'2h15m'},
+        {no:'G7518', from:'宁波', to:'上海虹桥', dep:'13:00', arr:'15:15', dur:'2h15m'}
+    ],
+    '上海-杭州': [
+        {no:'G7301', from:'上海虹桥', to:'杭州东', dep:'07:00', arr:'07:45', dur:'0h45m'},
+        {no:'G7315', from:'上海虹桥', to:'杭州东', dep:'09:00', arr:'09:42', dur:'0h42m'}
+    ],
+    '杭州-上海': [
+        {no:'G7302', from:'杭州东', to:'上海虹桥', dep:'08:00', arr:'08:45', dur:'0h45m'},
+        {no:'G7316', from:'杭州东', to:'上海虹桥', dep:'10:00', arr:'10:42', dur:'0h42m'}
+    ],
+    '南京-杭州': [
+        {no:'G2561', from:'南京南', to:'杭州东', dep:'07:10', arr:'08:38', dur:'1h28m'},
+        {no:'G7589', from:'南京南', to:'杭州东', dep:'09:00', arr:'10:28', dur:'1h28m'}
+    ],
+    '杭州-南京': [
+        {no:'G2562', from:'杭州东', to:'南京南', dep:'11:05', arr:'12:33', dur:'1h28m'},
+        {no:'G7590', from:'杭州东', to:'南京南', dep:'13:30', arr:'14:58', dur:'1h28m'}
+    ],
+    '宁波-杭州': [
+        {no:'G1866', from:'宁波', to:'杭州东', dep:'06:14', arr:'07:22', dur:'1h08m'},
+        {no:'D656', from:'宁波', to:'杭州东', dep:'07:09', arr:'08:14', dur:'1h05m'}
+    ],
+    '杭州-宁波': [
+        {no:'G1865', from:'杭州东', to:'宁波', dep:'08:00', arr:'09:08', dur:'1h08m'},
+        {no:'D659', from:'杭州东', to:'宁波', dep:'17:30', arr:'18:35', dur:'1h05m'}
+    ],
+    '合肥-南京': [
+        {no:'G8366', from:'合肥南', to:'南京南', dep:'06:17', arr:'07:09', dur:'0h52m'},
+        {no:'D2866', from:'合肥南', to:'南京南', dep:'07:03', arr:'07:51', dur:'0h48m'}
+    ],
+    '南京-合肥': [
+        {no:'G8365', from:'南京南', to:'合肥南', dep:'07:30', arr:'08:22', dur:'0h52m'},
+        {no:'D2867', from:'南京南', to:'合肥南', dep:'12:00', arr:'12:48', dur:'0h48m'}
+    ],
+    '合肥-杭州': [
+        {no:'G7421', from:'合肥南', to:'杭州东', dep:'07:20', arr:'09:10', dur:'1h50m'},
+        {no:'G7425', from:'合肥南', to:'杭州东', dep:'12:00', arr:'13:50', dur:'1h50m'}
+    ],
+    '杭州-合肥': [
+        {no:'G7422', from:'杭州东', to:'合肥南', dep:'09:40', arr:'11:30', dur:'1h50m'},
+        {no:'G7426', from:'杭州东', to:'合肥南', dep:'14:20', arr:'16:10', dur:'1h50m'}
+    ],
+    '合肥-徐州': [
+        {no:'G7291', from:'合肥南', to:'徐州东', dep:'07:00', arr:'08:35', dur:'1h35m'},
+        {no:'G3225', from:'合肥南', to:'徐州东', dep:'08:30', arr:'10:05', dur:'1h35m'}
+    ],
+    '徐州-合肥': [
+        {no:'G7292', from:'徐州东', to:'合肥南', dep:'09:05', arr:'10:40', dur:'1h35m'},
+        {no:'G3226', from:'徐州东', to:'合肥南', dep:'12:30', arr:'14:05', dur:'1h35m'}
+    ],
+    '徐州-济南': [
+        {no:'G2064', from:'徐州东', to:'济南西', dep:'07:30', arr:'08:55', dur:'1h25m'},
+        {no:'G2068', from:'徐州东', to:'济南西', dep:'11:00', arr:'12:25', dur:'1h25m'}
+    ],
+    '济南-徐州': [
+        {no:'G2065', from:'济南西', to:'徐州东', dep:'09:15', arr:'10:40', dur:'1h25m'},
+        {no:'G2069', from:'济南西', to:'徐州东', dep:'13:30', arr:'14:55', dur:'1h25m'}
+    ],
+    '徐州-郑州': [
+        {no:'G3165', from:'徐州东', to:'郑州东', dep:'07:00', arr:'08:35', dur:'1h35m'},
+        {no:'G3157', from:'徐州东', to:'郑州东', dep:'10:20', arr:'11:55', dur:'1h35m'}
+    ],
+    '郑州-徐州': [
+        {no:'G3166', from:'郑州东', to:'徐州东', dep:'09:00', arr:'10:35', dur:'1h35m'},
+        {no:'G3158', from:'郑州东', to:'徐州东', dep:'14:00', arr:'15:35', dur:'1h35m'}
+    ],
+    '济南-青岛': [
+        {no:'G6905', from:'济南', to:'青岛北', dep:'07:05', arr:'09:30', dur:'2h25m'},
+        {no:'G6915', from:'济南西', to:'青岛北', dep:'10:00', arr:'12:25', dur:'2h25m'}
+    ],
+    '青岛-济南': [
+        {no:'G6906', from:'青岛北', to:'济南', dep:'10:00', arr:'12:25', dur:'2h25m'},
+        {no:'G6916', from:'青岛北', to:'济南西', dep:'14:00', arr:'16:25', dur:'2h25m'}
+    ],
+    '青岛-济宁': [
+        {no:'G1833', from:'青岛北', to:'济宁北', dep:'06:30', arr:'09:02', dur:'2h32m'},
+        {no:'G6965', from:'青岛西', to:'济宁东', dep:'11:17', arr:'13:33', dur:'2h18m'}
+    ],
+    '济宁-青岛': [
+        {no:'G1834', from:'济宁北', to:'青岛北', dep:'13:30', arr:'16:02', dur:'2h32m'},
+        {no:'G6966', from:'济宁东', to:'青岛西', dep:'14:05', arr:'16:23', dur:'2h18m'}
+    ],
+    '济南-济宁': [
+        {no:'G6961', from:'济南西', to:'济宁东', dep:'07:15', arr:'08:15', dur:'1h00m'},
+        {no:'G5585', from:'济南西', to:'济宁东', dep:'09:00', arr:'10:00', dur:'1h00m'}
+    ],
+    '济宁-济南': [
+        {no:'G6962', from:'济宁东', to:'济南西', dep:'10:30', arr:'11:30', dur:'1h00m'},
+        {no:'G5586', from:'济宁东', to:'济南西', dep:'15:00', arr:'16:00', dur:'1h00m'}
+    ],
+    '沈阳-长春': [
+        {no:'G8033', from:'沈阳北', to:'长春', dep:'06:46', arr:'08:35', dur:'1h49m'},
+        {no:'G47', from:'沈阳北', to:'长春西', dep:'09:36', arr:'10:40', dur:'1h04m'}
+    ],
+    '长春-沈阳': [
+        {no:'G8034', from:'长春', to:'沈阳北', dep:'09:00', arr:'10:49', dur:'1h49m'},
+        {no:'G48', from:'长春西', to:'沈阳北', dep:'11:10', arr:'12:14', dur:'1h04m'}
+    ],
+    '沈阳-大连': [
+        {no:'G8023', from:'沈阳', to:'大连北', dep:'07:00', arr:'08:58', dur:'1h58m'},
+        {no:'G8043', from:'沈阳', to:'大连北', dep:'12:00', arr:'13:58', dur:'1h58m'}
+    ],
+    '大连-沈阳': [
+        {no:'G8024', from:'大连北', to:'沈阳', dep:'09:10', arr:'11:08', dur:'1h58m'},
+        {no:'G8044', from:'大连北', to:'沈阳', dep:'15:00', arr:'16:58', dur:'1h58m'}
+    ],
+    '沈阳-哈尔滨': [
+        {no:'G47', from:'沈阳北', to:'哈尔滨西', dep:'09:36', arr:'11:37', dur:'2h04m'},
+        {no:'G703', from:'沈阳北', to:'哈尔滨西', dep:'08:34', arr:'11:02', dur:'2h30m'}
+    ],
+    '哈尔滨-沈阳': [
+        {no:'G48', from:'哈尔滨西', to:'沈阳北', dep:'12:05', arr:'14:06', dur:'2h04m'},
+        {no:'G704', from:'哈尔滨西', to:'沈阳北', dep:'13:30', arr:'16:00', dur:'2h30m'}
+    ],
+    '大连-长春': [
+        {no:'G8041', from:'大连北', to:'长春西', dep:'07:30', arr:'11:05', dur:'3h35m'},
+        {no:'G8047', from:'大连北', to:'长春西', dep:'12:00', arr:'15:30', dur:'3h30m'}
+    ],
+    '长春-大连': [
+        {no:'G8042', from:'长春西', to:'大连北', dep:'11:35', arr:'15:10', dur:'3h35m'},
+        {no:'G8048', from:'长春西', to:'大连北', dep:'16:00', arr:'19:30', dur:'3h30m'}
+    ],
+    '哈尔滨-长春': [
+        {no:'G707', from:'哈尔滨西', to:'长春西', dep:'08:00', arr:'09:18', dur:'1h18m'},
+        {no:'G709', from:'哈尔滨西', to:'长春', dep:'09:30', arr:'10:55', dur:'1h25m'}
+    ],
+    '长春-哈尔滨': [
+        {no:'G708', from:'长春西', to:'哈尔滨西', dep:'09:40', arr:'10:58', dur:'1h18m'},
+        {no:'G710', from:'长春', to:'哈尔滨西', dep:'11:15', arr:'12:40', dur:'1h25m'}
+    ],
+    '北京-济南': [
+        {no:'G333', from:'北京南', to:'济南西', dep:'07:08', arr:'09:10', dur:'2h02m'},
+        {no:'G337', from:'北京南', to:'济南西', dep:'10:25', arr:'12:28', dur:'2h03m'}
+    ],
+    '济南-北京': [
+        {no:'G334', from:'济南西', to:'北京南', dep:'09:40', arr:'11:42', dur:'2h02m'},
+        {no:'G338', from:'济南西', to:'北京南', dep:'13:00', arr:'15:03', dur:'2h03m'}
+    ],
+    '北京-南京': [
+        {no:'G101', from:'北京南', to:'南京南', dep:'06:44', arr:'10:38', dur:'3h54m'},
+        {no:'G103', from:'北京南', to:'南京南', dep:'08:00', arr:'11:54', dur:'3h54m'}
+    ],
+    '南京-北京': [
+        {no:'G102', from:'南京南', to:'北京南', dep:'07:00', arr:'10:54', dur:'3h54m'},
+        {no:'G104', from:'南京南', to:'北京南', dep:'14:00', arr:'17:54', dur:'3h54m'}
+    ],
+    '杭州-宁波': [
+        {no:'G1866', from:'杭州东', to:'宁波', dep:'08:00', arr:'09:08', dur:'1h08m'},
+        {no:'G7503', from:'杭州东', to:'宁波', dep:'10:30', arr:'11:38', dur:'1h08m'}
+    ],
+    '上海-合肥': [
+        {no:'G7176', from:'上海虹桥', to:'合肥南', dep:'07:15', arr:'09:05', dur:'1h50m'},
+        {no:'G7182', from:'上海虹桥', to:'合肥南', dep:'11:00', arr:'12:48', dur:'1h48m'}
+    ],
+    '合肥-上海': [
+        {no:'G7177', from:'合肥南', to:'上海虹桥', dep:'09:35', arr:'11:25', dur:'1h50m'},
+        {no:'G7183', from:'合肥南', to:'上海虹桥', dep:'13:20', arr:'15:08', dur:'1h48m'}
+    ],
+    '南京-徐州': [
+        {no:'G3165', from:'南京南', to:'徐州东', dep:'07:00', arr:'08:55', dur:'1h55m'},
+        {no:'G3171', from:'南京南', to:'徐州东', dep:'12:30', arr:'14:25', dur:'1h55m'}
+    ],
+    '徐州-南京': [
+        {no:'G3166', from:'徐州东', to:'南京南', dep:'09:00', arr:'10:55', dur:'1h55m'},
+        {no:'G3172', from:'徐州东', to:'南京南', dep:'15:00', arr:'16:55', dur:'1h55m'}
+    ],
+    '大连-沈阳': [
+        {no:'G8024', from:'大连北', to:'沈阳', dep:'09:10', arr:'11:08', dur:'1h58m'},
+        {no:'G8044', from:'大连北', to:'沈阳', dep:'15:00', arr:'16:58', dur:'1h58m'}
+    ],
+    '天津-沧州': [
+        {no:'G6273', from:'天津西', to:'沧州西', dep:'08:00', arr:'08:25', dur:'0h25m'},
+        {no:'G363', from:'天津西', to:'沧州西', dep:'07:46', arr:'08:10', dur:'0h24m'}
+    ],
+    '沧州-天津': [
+        {no:'G6274', from:'沧州西', to:'天津西', dep:'09:00', arr:'09:25', dur:'0h25m'},
+        {no:'G364', from:'沧州西', to:'天津西', dep:'14:30', arr:'14:54', dur:'0h24m'}
+    ]
+};
+
+function getTrainRecommendation(fromCity, toCity) {
+    const key1 = `${fromCity}-${toCity}`;
+    const key2 = `${toCity}-${fromCity}`;
+    const trains = TRAIN_DATA[key1] || TRAIN_DATA[key2] || [];
+    if (trains.length === 0) return null;
+    const first = TRAIN_DATA[key1] ? trains[0] : null;
+    return { trains, isReverse: !first };
+}
+
+function getTrainDayNames(manager1, manager2) {
+    const allDays = new Set([...manager1.days, ...manager2.days]);
+    const dayNames = {1:'周一',2:'周二',3:'周三',4:'周四',5:'周五'};
+    const freeDays = [];
+    for (let d = 1; d <= 5; d++) {
+        if (!allDays.has(d)) freeDays.push(dayNames[d]);
+    }
+    return freeDays.join('、');
+}
+
+const CITY_COORDS = {
+    '北京': [116.4,39.9], '天津': [117.2,39.1], '太原': [112.5,37.9], '济南': [117.0,36.7],
+    '郑州': [113.6,34.7], '武汉': [114.3,30.6], '上海': [121.5,31.2], '南京': [118.8,32.1],
+    '宁波': [121.6,29.9], '杭州': [120.2,30.3], '合肥': [117.3,31.8], '徐州': [117.2,34.3],
+    '保定': [115.5,38.9], '青岛': [120.4,36.1], '济宁': [116.6,35.4], '大连': [121.6,38.9],
+    '沈阳': [123.4,41.8], '长春': [125.3,43.9], '哈尔滨': [126.6,45.8], '西安': [108.9,34.3]
+};
+
+function getDistance(city1, city2) {
+    const c1 = CITY_COORDS[city1], c2 = CITY_COORDS[city2];
+    if (!c1 || !c2) return 9999;
+    const R = 6371;
+    const dLat = (c2[0]-c1[0])*Math.PI/180;
+    const dLon = (c2[1]-c1[1])*Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(c1[0]*Math.PI/180)*Math.cos(c2[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// State
+let state = {
+    managers: MANAGERS.map((m, i) => ({
+        ...m,
+        id: i,
+        exempt: FIXED_EXEMPT.includes(m.name),
+        fixedExempt: FIXED_EXEMPT.includes(m.name),
+        assignedInspector: null,
+        manualAssign: false
+    })),
+    assignments: [] // { inspectorId, managerId }
+};
+
+// ==================== INIT ====================
+
+function init() {
+    renderTable();
+    renderInspectors();
+    updateStats();
+    updateTime();
+    setInterval(updateTime, 60000);
+}
+
+function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toLocaleString('zh-CN');
+}
+
+// ==================== RENDER ====================
+
+const DAY_NAMES = ['周一','周二','周三','周四','周五'];
+
+function renderTable() {
+    const tbody = document.getElementById('scheduleBody');
+    tbody.innerHTML = '';
+
+    state.managers.forEach(m => {
+        const tr = document.createElement('tr');
+        if (m.exempt) tr.className = 'exempt';
+
+        // Group
+        let html = `<td style="font-size:12px; color:#999;">${m.group}</td>`;
+
+        // Name with reset button
+        const isModified = JSON.stringify(m.days) !== JSON.stringify(DEFAULT_DAYS[m.name]);
+        html += `<td class="name-cell" style="font-weight:600;">${m.name}${m.fixedExempt ? ' <span class="badge badge-green">内定免检</span>' : ''} ${isModified ? `<span class="badge" style="background:#fff7e6;color:#d48806;font-size:10px;cursor:pointer;" onclick="event.stopPropagation();resetTrainingDay(${m.id})" title="重置为默认时间">↺ 重置</span>` : ''}</td>`;
+
+        // Days (clickable to toggle training day)
+        for (let d = 1; d <= 5; d++) {
+            const isActive = m.days.includes(d);
+            html += `<td class="schedule-cell ${isActive ? 'active' : ''}" style="cursor:pointer; user-select:none;" onclick="toggleTrainingDay(${m.id}, ${d})" title="点击切换培训日期">√</td>`;
+        }
+
+        // City
+        html += `<td><span class="city-tag">${m.city}</span></td>`;
+
+        // Exempt checkbox
+        const checked = m.exempt ? 'checked' : '';
+        const disabled = m.fixedExempt ? 'disabled' : '';
+        html += `<td class="check-cell"><input type="checkbox" ${checked} ${disabled} onchange="toggleExempt(${m.id}, this.checked)"></td>`;
+
+        // Inspector
+        if (m.exempt) {
+            html += `<td><span class="inspector-tag fixed-exempt">免检</span></td>`;
+        } else if (m.assignedInspector !== null) {
+            const ins = INSPECTORS[m.assignedInspector];
+            const manualClass = m.manualAssign ? 'manual' : '';
+            html += `<td style="position:relative;"><span class="inspector-tag assigned ${manualClass}" style="background:${ins.color}15; color:${ins.color};" onclick="showInspectorDropdown(${m.id}, this)">${ins.name}</span></td>`;
+        } else {
+            html += `<td style="position:relative;"><span class="inspector-tag selectable" onclick="showInspectorDropdown(${m.id}, this)">+ 分配检查员</span></td>`;
+        }
+
+        // Train recommendation column
+        html += '<td>';
+        if (m.assignedInspector !== null) {
+            const ins = INSPECTORS.find(i => i.id === m.assignedInspector);
+            if (ins) {
+                const otherAssignments = state.assignments.filter(a => a.inspectorId === ins.id);
+                if (otherAssignments.length >= 2 && ins.name !== '周宁') {
+                    const otherMgr = otherAssignments.find(a => a.managerId !== m.id);
+                    if (otherMgr) {
+                        const om = state.managers[otherMgr.managerId];
+                        const rec = getTrainRecommendation(m.city, om.city);
+                        if (rec) {
+                            const freeDay = getTrainDayNames(m, om);
+                            const recTrain = rec.trains[0];
+                            html += `<div class="train-info">`;
+                            html += `<div class="train-header">🚄 ${freeDay || '空闲日'}</div>`;
+                            html += `<div class="train-row"><span class="train-no">${recTrain.no}</span> ${recTrain.from} ${recTrain.dep}→${recTrain.to} ${recTrain.arr}（${recTrain.dur}）</div>`;
+                            html += `</div>`;
+                        } else {
+                            html += '<span style="color:#bbb;font-size:11px;">暂无车次数据</span>';
+                        }
+                    }
+                }
+            }
+        }
+        html += '</td>';
+
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderInspectors() {
+    const list = document.getElementById('inspectorList');
+    list.innerHTML = '';
+
+    // Count assignments per inspector
+    const counts = {};
+    INSPECTORS.forEach(i => counts[i.id] = 0);
+    state.assignments.forEach(a => { counts[a.inspectorId] = (counts[a.inspectorId]||0) + 1; });
+
+    INSPECTORS.forEach(ins => {
+        const count = counts[ins.id];
+        const max = ins.maxRegions;
+        const pct = count / max;
+
+        let statusClass = 'capacity-free';
+        let statusText = `0/${max} 可分配`;
+        if (count >= max) {
+            statusClass = 'capacity-full';
+            statusText = `${count}/${max} 已满`;
+        } else if (count > 0) {
+            statusClass = 'capacity-ok';
+            statusText = `${count}/${max} 已分配`;
+        }
+
+        const div = document.createElement('div');
+        div.className = `inspector-item ${count >= max ? 'busy' : ''} ${count > max ? 'overloaded' : ''}`;
+        div.innerHTML = `
+            <div class="inspector-avatar" style="background:${ins.color};">${ins.name.charAt(0)}</div>
+            <div class="inspector-info">
+                <div class="inspector-name">${ins.name}</div>
+                <div class="inspector-meta">${ins.type === 'limited' ? '🔍 可检查 1 个大区' : '🔍 可检查 2 个大区'}</div>
+            </div>
+            <span class="inspector-capacity ${statusClass}">${statusText}</span>
+        `;
+        list.appendChild(div);
+    });
+}
+
+function updateStats() {
+    const total = state.managers.length;
+    const exempt = state.managers.filter(m => m.exempt).length;
+    const needCheck = total - exempt;
+    const assigned = state.assignments.length;
+    const unassigned = needCheck - assigned;
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statExempt').textContent = exempt;
+    document.getElementById('statNeedCheck').textContent = needCheck;
+    document.getElementById('statExemptRemain').textContent = MAX_EXEMPT - exempt;
+    document.getElementById('statUnassigned').textContent = Math.max(0, unassigned);
+
+    // Color the remain
+    const remain = MAX_EXEMPT - exempt;
+    const el = document.getElementById('statExemptRemain');
+    if (remain <= 0) {
+        el.style.color = 'var(--danger)';
+    } else if (remain <= 2) {
+        el.style.color = 'var(--warning)';
+    } else {
+        el.style.color = '#8c6900';
+    }
+}
+
+function updateInfoBanner() {
+    const banner = document.getElementById('infoBanner');
+    const exempt = state.managers.filter(m => m.exempt).length;
+    const remain = MAX_EXEMPT - exempt;
+    const assigned = state.assignments.length;
+    const needCheck = state.managers.filter(m => !m.exempt).length;
+
+    if (assigned === needCheck && needCheck > 0) {
+        banner.className = 'info-banner ok';
+        banner.innerHTML = `✅ 所有 ${needCheck} 个待检大区已全部分配检查员`;
+    } else if (assigned > 0) {
+        banner.className = 'info-banner warn';
+        banner.innerHTML = `⚠️ 已分配 ${assigned}/${needCheck}，还有 ${needCheck - assigned} 个大区未分配检查员`;
+    } else if (remain <= 0) {
+        banner.className = 'info-banner warn';
+        banner.innerHTML = `⚠️ 免检名额已满（${exempt}/${MAX_EXEMPT}），无法继续添加`;
+    } else {
+        banner.className = 'info-banner';
+        banner.innerHTML = `⚡ 点击表格中的「免检」列勾选/取消免检，然后点击「自动分配检查员」生成方案（剩余免检名额：${remain}）`;
+    }
+}
+
+// ==================== ACTIONS ====================
+
+let activeDropdown = null;
+
+function closeDropdown() {
+    if (activeDropdown) {
+        activeDropdown.remove();
+        activeDropdown = null;
+    }
+}
+
+function getInspectorUsage(inspectorId) {
+    return state.assignments.filter(a => a.inspectorId === inspectorId).length;
+}
+
+function getInspectorBusyDays(inspectorId) {
+    const days = new Set();
+    state.assignments.forEach(a => {
+        if (a.inspectorId === inspectorId) {
+            const m = state.managers[a.managerId];
+            m.days.forEach(d => days.add(d));
+        }
+    });
+    return days;
+}
+
+function showInspectorDropdown(managerId, el) {
+    event.stopPropagation();
+    const m = state.managers[managerId];
+    const managerDays = new Set(m.days);
+    const td = el.closest('td');
+
+    closeDropdown();
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'inspector-dropdown';
+
+    INSPECTORS.forEach(ins => {
+        const usage = getInspectorUsage(ins.id);
+        const capacity = usage >= ins.maxRegions;
+        const busyDays = getInspectorBusyDays(ins.id);
+        const hasConflict = [...managerDays].some(d => busyDays.has(d));
+        const hasSelfConflict = ins.selfTrainingDays && [...managerDays].some(d => ins.selfTrainingDays.includes(d));
+
+        // Flexible inspectors (周宁) can conflict, but self-training always conflicts
+        let disabled = capacity || (hasConflict && ins.type !== 'flexible') || hasSelfConflict;
+        let reason = '';
+        if (capacity) reason = `（已满 ${ins.maxRegions}/${ins.maxRegions}）`;
+        else if (hasSelfConflict) reason = '（自己培训中）';
+        else if (hasConflict && ins.type !== 'flexible') reason = '（时间冲突）';
+        else if (hasConflict && ins.type === 'flexible') reason = '（灵活可排）';
+
+        const item = document.createElement('div');
+        item.className = `dropdown-item ${disabled ? 'disabled' : ''}`;
+        item.innerHTML = `
+            <span class="dot" style="background:${ins.color}"></span>
+            <span class="info">${ins.name} <span style="font-size:11px;color:#bbb">${ins.type === 'flexible' ? '灵活' : ins.type === 'limited' ? '限1区' : '可2区'}</span></span>
+            <span class="capacity ${capacity ? 'full' : ''}">${usage}/${ins.maxRegions}${reason}</span>
+        `;
+        if (!disabled) {
+            item.onclick = (e) => {
+                e.stopPropagation();
+                assignInspector(managerId, ins.id, true);
+                closeDropdown();
+            };
+        }
+        dropdown.appendChild(item);
+    });
+
+    const clearBtn = document.createElement('div');
+    clearBtn.className = 'dropdown-clear';
+    clearBtn.textContent = '✕ 清除分配';
+    clearBtn.onclick = (e) => {
+        e.stopPropagation();
+        clearInspectorAssignment(managerId);
+        closeDropdown();
+    };
+    dropdown.appendChild(clearBtn);
+
+    td.appendChild(dropdown);
+    activeDropdown = dropdown;
+
+    const rect = el.getBoundingClientRect();
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.top = (rect.bottom + 4) + 'px';
+}
+
+function assignInspector(managerId, inspectorId, manual) {
+    const m = state.managers[managerId];
+    const ins = INSPECTORS[inspectorId];
+
+    // Clear existing assignment to this manager
+    state.assignments = state.assignments.filter(a => a.managerId !== managerId);
+    m.assignedInspector = inspectorId;
+    m.manualAssign = manual || false;
+
+    state.assignments.push({ inspectorId, managerId });
+
+    addLog(`手动分配：${ins.name} → ${m.name}（${m.city}）`, 'info');
+    renderTable();
+    renderInspectors();
+    updateStats();
+    updateInfoBanner();
+}
+
+function clearInspectorAssignment(managerId) {
+    const m = state.managers[managerId];
+    if (m.assignedInspector !== null) {
+        const ins = INSPECTORS[m.assignedInspector];
+        addLog(`清除分配：${ins.name} 从 ${m.name} 移除`, 'warn');
+    }
+    state.assignments = state.assignments.filter(a => a.managerId !== managerId);
+    m.assignedInspector = null;
+    m.manualAssign = false;
+    renderTable();
+    renderInspectors();
+    updateStats();
+    updateInfoBanner();
+}
+
+document.addEventListener('click', closeDropdown);
+
+function toggleTrainingDay(managerId, day) {
+    const m = state.managers[managerId];
+    const idx = m.days.indexOf(day);
+    if (idx >= 0) {
+        m.days.splice(idx, 1);
+    } else {
+        m.days.push(day);
+        m.days.sort();
+    }
+    INSPECTORS.forEach(ins => {
+        if (ins.name === m.name) {
+            ins.selfTrainingDays = [...m.days];
+        }
+    });
+    renderTable();
+    showToast(`${m.name} 培训时间已更新`, 'success');
+}
+
+function resetTrainingDay(managerId) {
+    const m = state.managers[managerId];
+    m.days = [...DEFAULT_DAYS[m.name]];
+    INSPECTORS.forEach(ins => {
+        if (ins.name === m.name) {
+            ins.selfTrainingDays = [...m.days];
+        }
+    });
+    renderTable();
+    showToast(`${m.name} 培训时间已重置`, 'success');
+}
+
+function toggleExempt(managerId, checked) {
+    const m = state.managers[managerId];
+    const currentExempt = state.managers.filter(x => x.exempt).length;
+
+    if (checked && currentExempt >= MAX_EXEMPT) {
+        showToast(`免检名额已满（最多 ${MAX_EXEMPT} 个），请先取消其他人的免检`, 'error');
+        renderTable();
+        return;
+    }
+
+    m.exempt = checked;
+
+    // Clear assignment if now exempt
+    if (checked) {
+        state.assignments = state.assignments.filter(a => a.managerId !== managerId);
+        m.assignedInspector = null;
+        addLog(`取消 ${m.name} 的检查安排（已设为免检）`, 'warn');
+    } else {
+        addLog(`${m.name} 取消免检，需要安排检查员`, 'warn');
+    }
+
+    renderTable();
+    renderInspectors();
+    updateStats();
+    updateInfoBanner();
+    renderAssignmentDetail();
+}
+
+function autoAssign() {
+    addLog('开始自动分配检查员...（手动分配的不会被覆盖）', '');
+
+    // Preserve manual assignments, clear auto ones
+    const manualAssignments = state.assignments.filter(a => {
+        const m = state.managers[a.managerId];
+        return m.manualAssign;
+    });
+
+    // Build manual usage map to avoid conflicts
+    const manualUsage = {};
+    INSPECTORS.forEach(ins => {
+        manualUsage[ins.id] = { count: 0, days: new Set(), cities: [] };
+    });
+    manualAssignments.forEach(a => {
+        const m = state.managers[a.managerId];
+        manualUsage[a.inspectorId].count++;
+        m.days.forEach(d => manualUsage[a.inspectorId].days.add(d));
+        manualUsage[a.inspectorId].cities.push(m.city);
+    });
+
+    // Clear auto assignments only
+    state.managers.forEach(m => {
+        if (!m.manualAssign) {
+            m.assignedInspector = null;
+        }
+    });
+    state.assignments = [...manualAssignments];
+
+    // Get managers that need checking (exclude already manually assigned)
+    const needCheck = state.managers.filter(m => !m.exempt && !m.manualAssign);
+    addLog(`需要检查的大区：${needCheck.length} 个`, '');
+
+    if (needCheck.length === 0) {
+        showToast('所有大区均已免检，无需分配', 'warning');
+        addLog('无需分配，结束', 'warn');
+        updateInfoBanner();
+        return;
+    }
+
+    // Track inspector usage: inherit from manual assignments
+    const usage = {};
+    INSPECTORS.forEach(ins => {
+        usage[ins.id] = {
+            count: manualUsage[ins.id].count,
+            days: new Set(manualUsage[ins.id].days),
+            cities: [...manualUsage[ins.id].cities]
+        };
+    });
+
+    // Group by primary time slot (use earliest day to decide group)
+    const assigned_set = new Set();
+    const firstHalf = [];
+    const secondHalf = [];
+    const midWeek = []; // 周三为主的
+
+    needCheck.forEach(m => {
+        if (assigned_set.has(m.id)) return;
+        // Determine primary slot by earliest day
+        if (m.days.includes(1) || m.days.includes(2)) {
+            firstHalf.push(m);
+            assigned_set.add(m.id);
+        } else if (m.days.includes(4) || m.days.includes(5)) {
+            secondHalf.push(m);
+            assigned_set.add(m.id);
+        } else if (m.days.includes(3)) {
+            midWeek.push(m);
+            assigned_set.add(m.id);
+        }
+    });
+
+    addLog(`前半周（周一二）：${firstHalf.length} 个大区`, '');
+    addLog(`跨周中：${midWeek.length} 个大区`, '');
+    addLog(`后半周（周四五）：${secondHalf.length} 个大区`, '');
+
+    // Sort managers: those who can only take 1 inspector get priority assignment for limited inspectors
+    function assignSlot(managers, slotLabel, slotDays) {
+        const remaining = [...managers];
+
+        // First pass: assign fixed-exempt inspectors (付钟庆, 王瑶) if they have capacity
+        // They can check 1 region total
+        const fixedExemptInspectors = INSPECTORS.filter(ins =>
+            FIXED_EXEMPT.includes(ins.name) && usage[ins.id].count < ins.maxRegions
+        );
+
+        // Second pass: limited inspectors (方凯, 徐老师)
+        // Third pass: full inspectors
+
+        while (remaining.length > 0) {
+            // Find the manager with fewest available inspectors (most constrained first)
+            remaining.sort((a, b) => {
+                const aOptions = getAvailableInspectors(a, usage, slotDays);
+                const bOptions = getAvailableInspectors(b, usage, slotDays);
+                return aOptions.length - bOptions.length;
+            });
+
+            const manager = remaining[0];
+            const available = getAvailableInspectors(manager, usage, slotDays);
+
+            if (available.length === 0) {
+                addLog(`❌ 无法为 ${manager.name}（${manager.city}）分配检查员！时间冲突或人手不足`, 'error');
+                remaining.shift();
+                continue;
+            }
+
+            // Pick best: prefer nearest city, then prefer inspector with more remaining capacity
+            available.sort((a, b) => {
+                const distA = getDistance(a.city, manager.city);
+                const distB = getDistance(b.city, manager.city);
+                if (Math.abs(distA - distB) > 200) return distA - distB;
+                const capA = a.maxRegions - usage[a.id].count;
+                const capB = b.maxRegions - usage[b.id].count;
+                return capB - capA;
+            });
+
+            // Try each available inspector until one works (no conflict)
+            let assigned = false;
+            for (const candidate of available) {
+                const timeConflict = candidate.type !== 'flexible' && manager.days.some(d => usage[candidate.id].days.has(d));
+                const selfConflict = candidate.selfTrainingDays && manager.days.some(d => candidate.selfTrainingDays.includes(d));
+                if (timeConflict || selfConflict) {
+                    addLog(`${candidate.name} 与 ${manager.name} 时间冲突${selfConflict ? '（自己培训）' : ''}，尝试下一个`, 'warn');
+                    continue;
+                }
+
+                // Assign
+                state.assignments.push({ inspectorId: candidate.id, managerId: manager.id });
+                manager.assignedInspector = candidate.id;
+                manager.manualAssign = false;
+                manager.days.forEach(d => usage[candidate.id].days.add(d));
+                usage[candidate.id].count++;
+                usage[candidate.id].cities.push(manager.city);
+
+                const dist = Math.round(getDistance(candidate.city, manager.city));
+                addLog(`✅ ${candidate.name} → ${manager.name}（${manager.city}，${slotLabel}，距离约${dist}km）`, 'success');
+
+            assigned = true;
+            remaining.shift();
+            break;
+            }
+
+            if (!assigned) {
+                addLog(`❌ 无法为 ${manager.name}（${manager.city}）分配检查员！所有候选人时间冲突`, 'error');
+                remaining.shift();
+            }
+        }
+    }
+
+    // Assign each group
+    assignSlot(firstHalf, '前半周', [1,2]);
+    assignSlot(midWeek, '周中', [3]);
+    assignSlot(secondHalf, '后半周', [4,5]);
+
+    // Summary
+    const success = state.assignments.length;
+    const fail = needCheck.length - success;
+    if (fail > 0) {
+        showToast(`分配完成：${success} 成功，${fail} 失败`, 'error');
+        addLog(`分配结果：${success} 成功，${fail} 失败。建议增加检查员或调整免检`, 'error');
+    } else {
+        showToast(`全部 ${success} 个大区分配成功！`, 'success');
+        addLog(`🎉 全部 ${success} 个大区分配成功！`, 'success');
+    }
+
+    renderTable();
+    renderInspectors();
+    updateStats();
+    updateInfoBanner();
+    renderAssignmentDetail();
+}
+
+function getAvailableInspectors(manager, usage, slotDays) {
+    return INSPECTORS.filter(ins => {
+        if (usage[ins.id].count >= ins.maxRegions) return false;
+        if (ins.type !== 'flexible') {
+            const conflict = manager.days.some(d => usage[ins.id].days.has(d));
+            if (conflict) return false;
+        }
+        // Check self-training conflict (付钟庆, 王瑶 cannot check during their own training)
+        if (ins.selfTrainingDays && manager.days.some(d => ins.selfTrainingDays.includes(d))) return false;
+        return true;
+    });
+}
+
+function renderAssignmentDetail() {
+    const detail = document.getElementById('assignmentDetail');
+    if (state.assignments.length === 0) {
+        detail.innerHTML = `<div class="no-assignment"><div class="icon">📋</div><div>点击「自动分配检查员」查看分配方案</div></div>`;
+        return;
+    }
+
+    let html = '<div class="assignment-detail">';
+
+    // Group by inspector
+    INSPECTORS.forEach(ins => {
+        const assignments = state.assignments.filter(a => a.inspectorId === ins.id);
+        if (assignments.length === 0) return;
+
+        const isFixedExempt = FIXED_EXEMPT.includes(ins.name);
+
+        html += `<div class="assignment-block ${isFixedExempt ? 'free-exempt' : ''}">`;
+        html += `<div class="a-title" style="color:${ins.color};">${ins.name} ${ins.type === 'flexible' ? '<span style="font-size:10px;color:#999">(灵活)</span>' : ''}</div>`;
+        assignments.forEach(a => {
+            const m = state.managers[a.managerId];
+            const dayStr = m.days.map(d => DAY_NAMES[d-1]).join('、');
+            html += `<div class="a-detail">📍 ${m.name}（${m.city}）— ${dayStr}</div>`;
+        });
+        // Add train recommendation if inspector has 2+ assignments
+        const inspectorName = INSPECTORS.find(i => i.id === inspectorId).name;
+        if (assignments.length >= 2 && inspectorName !== '周宁') {
+            const mgr1 = state.managers[assignments[0].managerId];
+            const mgr2 = state.managers[assignments[1].managerId];
+            const rec = getTrainRecommendation(mgr1.city, mgr2.city);
+            if (rec) {
+                const freeDay = getTrainDayNames(mgr1, mgr2);
+                const t = rec.trains[0];
+                html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e8e8e8;font-size:11px;color:#595959;">`;
+                html += `<div style="font-weight:600;color:#262626;">🚄 ${freeDay} 中转</div>`;
+                html += `<div><span style="color:#1677ff;font-weight:600;">${t.no}</span> ${t.from} ${t.dep}→${t.to} ${t.arr}（${t.dur}）</div>`;
+                html += `</div>`;
+            } else {
+                html += `<div style="margin-top:4px;font-size:11px;color:#bbb;">暂无车次数据</div>`;
+            }
+        }
+        html += `</div>`;
+    });
+
+    // Show unassigned
+    const unassigned = state.managers.filter(m => !m.exempt && m.assignedInspector === null);
+    if (unassigned.length > 0) {
+        html += `<div class="assignment-block" style="border-left-color:var(--danger); background:#fff2f0;">`;
+        html += `<div class="a-title" style="color:var(--danger);">⚠️ 未分配（${unassigned.length}）</div>`;
+        unassigned.forEach(m => {
+            const dayStr = m.days.map(d => DAY_NAMES[d-1]).join('、');
+            html += `<div class="a-detail">📍 ${m.name}（${m.city}）— ${dayStr}</div>`;
+        });
+        html += `</div>`;
+    }
+
+    html += '</div>';
+    detail.innerHTML = html;
+}
+
+// ==================== EXPORT ====================
+
+function exportExcel() {
+    addLog('开始导出 Excel...', '');
+
+    const wb = XLSX.utils.book_new();
+
+    // Build data
+    const headers = ['组别', '大区经理', '周一<br><span style="font-weight:400;font-size:11px;color:#999">5月11日</span>', '周二<br><span style="font-weight:400;font-size:11px;color:#999">5月12日</span>', '周三<br><span style="font-weight:400;font-size:11px;color:#999">5月13日</span>', '周四<br><span style="font-weight:400;font-size:11px;color:#999">5月14日</span>', '周五<br><span style="font-weight:400;font-size:11px;color:#999">5月15日</span>', '会议举办城市', '负责城市', '免检', '检查员'];
+    const rows = [headers];
+
+    state.managers.forEach(m => {
+        const row = [
+            m.group,
+            m.name,
+            m.days.includes(1) ? '√' : '',
+            m.days.includes(2) ? '√' : '',
+            m.days.includes(3) ? '√' : '',
+            m.days.includes(4) ? '√' : '',
+            m.days.includes(5) ? '√' : '',
+            m.city,
+            m.responsibleCities,
+            m.exempt ? '✓ 免检' : '',
+            m.exempt ? '免检' : (m.assignedInspector !== null ? INSPECTORS[m.assignedInspector].name : '')
+        ];
+        rows.push(row);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 6 }, { wch: 10 },
+        { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 },
+        { wch: 12 }, { wch: 50 }, { wch: 10 }, { wch: 16 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, '大区培训检查排期');
+
+    // Add inspector summary sheet
+    const insHeaders = ['检查员', '可检查大区数', '已分配', '状态'];
+    const insRows = [insHeaders];
+    const counts = {};
+    INSPECTORS.forEach(i => counts[i.id] = 0);
+    state.assignments.forEach(a => counts[a.inspectorId]++);
+
+    INSPECTORS.forEach(ins => {
+        insRows.push([
+            ins.name,
+            ins.maxRegions,
+            counts[ins.id],
+            counts[ins.id] >= ins.maxRegions ? '已满' : '可分配'
+        ]);
+    });
+
+    const ws2 = XLSX.utils.aoa_to_sheet(insRows);
+    ws2['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 8 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, ws2, '检查员分配汇总');
+
+    const filename = `大区培训检查排期_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    addLog(`Excel 导出成功：${filename}`, 'success');
+    showToast('Excel 导出成功！', 'success');
+}
+
+// ==================== RESET ====================
+
+function resetAll() {
+    state.managers.forEach(m => {
+        m.exempt = m.fixedExempt;
+        m.assignedInspector = null;
+        m.manualAssign = false;
+    });
+    state.assignments = [];
+    renderTable();
+    renderInspectors();
+    updateStats();
+    updateInfoBanner();
+    renderAssignmentDetail();
+    addLog('已重置所有分配', 'warn');
+    showToast('已重置', 'warning');
+}
+
+// ==================== 拟定方案 ====================
+
+const DRAFT_PLAN = [
+    { manager: '白高朋', inspector: '夏月' },
+    { manager: '姜海艳', inspector: '方凯' },
+    { manager: '李肖', inspector: '王一扬' },
+    { manager: '刘海英', inspector: '侯琦' },
+    { manager: '刘瑞新', inspector: '付钟庆' },
+    { manager: '刘现勇', inspector: '王九洋' },
+    { manager: '沈彦伟', inspector: '苑玉威' },
+    { manager: '孙凤现', inspector: '王瑶' },
+    { manager: '田玲', inspector: '郭士龙' },
+    { manager: '王世爽', inspector: '周宁' },
+    { manager: '肖敏', inspector: '周宁' },
+    { manager: '杨福强', inspector: '王一扬' },
+    { manager: '袁百臣', inspector: '郭士龙' },
+    { manager: '张国良', inspector: '侯琦' },
+];
+
+function showDraftPlan() {
+    const exemptNames = DRAFT_PLAN.map(d => d.manager);
+    const allManagers = state.managers.map(m => m.name);
+    const defaultExempt = allManagers.filter(n => !exemptNames.includes(n));
+
+    let html = '<div style="max-height:60vh;overflow-y:auto;">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<tr style="background:#fafafa;"><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">大区经理</th><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">城市</th><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">检查员</th></tr>';
+    DRAFT_PLAN.forEach(d => {
+        const mgr = state.managers.find(m => m.name === d.manager);
+        const city = mgr ? mgr.city : '-';
+        html += `<tr><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;">${d.manager}</td><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;color:#666;">${city}</td><td style="padding:6px 12px;border-bottom:1px solid #f0f0f0;"><span style="color:#1677ff;font-weight:600;">${d.inspector}</span></td></tr>`;
+    });
+    html += '</table>';
+    html += '</div>';
+
+    showCustomModal('💡 拟定方案参考', html, '关闭', null, '✅ 应用方案', function() { applyDraftPlan(); });
+}
+
+function applyDraftPlan() {
+    // 1. 先清空所有分配
+    state.assignments = [];
+    state.managers.forEach(m => {
+        m.assignedInspector = null;
+        m.manualAssign = false;
+    });
+
+    // 2. 方案中的14人：取消免检，分配检查员
+    const planNames = DRAFT_PLAN.map(d => d.manager);
+    state.managers.forEach(m => {
+        if (planNames.includes(m.name)) {
+            m.exempt = false;
+        }
+    });
+    // 3. 不在方案中的：设为免检
+    state.managers.forEach(m => {
+        if (!planNames.includes(m.name)) {
+            m.exempt = true;
+        }
+    });
+    // 4. 按方案分配
+    DRAFT_PLAN.forEach(d => {
+        const mgr = state.managers.find(m => m.name === d.manager);
+        const ins = INSPECTORS.find(i => i.name === d.inspector);
+        if (mgr && ins) {
+            mgr.assignedInspector = ins.id;
+            mgr.manualAssign = true;
+            state.assignments.push({ inspectorId: ins.id, managerId: mgr.id });
+        }
+    });
+
+    renderTable();
+    renderInspectors();
+    renderAssignmentDetail();
+    updateStats();
+    updateInfoBanner();
+    // 关闭弹窗
+    document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+}
+
+function showCustomModal(title, content, okText, onOk, extraBtnText, extraBtnAction) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    let footerHtml = '';
+    if (extraBtnText && extraBtnAction) {
+        footerHtml += `<button class="btn btn-primary" style="background:#52c41a;border-color:#52c41a;" id="_modalExtraBtn">${extraBtnText}</button>`;
+    }
+    footerHtml += `<button class="btn btn-primary" id="_modalCloseBtn">${okText || '关闭'}</button>`;
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:560px;">
+            <div class="modal-title">${title}</div>
+            <div class="modal-body" style="max-height:none;">${content}</div>
+            <div class="modal-footer">
+                ${footerHtml}
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#_modalCloseBtn').addEventListener('click', () => { overlay.remove(); if (onOk) onOk(); });
+    if (extraBtnText && extraBtnAction) {
+        overlay.querySelector('#_modalExtraBtn').addEventListener('click', extraBtnAction);
+    }
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+// ==================== UTILS ====================
+
+function addLog(msg, type) {
+    const log = document.getElementById('logContent');
+    const now = new Date();
+    const time = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.innerHTML = `<span class="time">${time}</span> ${msg}`;
+    log.insertBefore(entry, log.firstChild);
+}
+
+function clearLog() {
+    document.getElementById('logContent').innerHTML = '<div class="log-entry"><span class="time">--:--</span> 日志已清空</div>';
+}
+
+function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = `toast ${type} show`;
+    setTimeout(() => { toast.className = 'toast'; }, 3000);
+}
+
+// ==================== START ====================
+init();
+</script>
+
+</body>
+</html>
