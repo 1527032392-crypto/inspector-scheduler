@@ -208,6 +208,7 @@
                         <th class="schedule-cell">周四<br><span style="font-weight:400;font-size:11px;color:#999">5/22</span></th>
                         <th class="check-cell">抽查</th>
                         <th class="score-cell">现场评定<br>分数</th>
+                        <th>会议举办城市</th>
                         <th>状态</th>
                     </tr>
                 </thead>
@@ -16473,7 +16474,8 @@ function buildSavePayload() {
             shopCount: xq.shopCount,
             days: xq.days,
             spotCheck: xq.spotCheck,
-            score: xq.score || ''
+            score: xq.score || '',
+            meetingCity: xq.meetingCity || ''
         })),
         updatedAt: new Date().toISOString()
     };
@@ -16567,6 +16569,7 @@ async function loadData() {
                     days: saved.days || [1, 2],
                     spotCheck: saved.spotCheck || false,
                     score: saved.score || '',
+                    meetingCity: saved.meetingCity || '',
                     expanded: false
                 };
             });
@@ -16635,6 +16638,7 @@ function enterApp() {
         days: [1, 2],
         spotCheck: false,
         score: '',
+        meetingCity: '',
         expanded: false
     }));
 
@@ -16686,6 +16690,7 @@ function renderTable() {
 
         html += `<td class="check-cell"><input type="checkbox" ${xq.spotCheck ? 'checked' : ''} onchange="toggleSpotCheck(${idx}, this.checked)"></td>`;
         html += `<td class="score-cell"><input type="number" class="score-input" min="0" max="100" placeholder="--" value="${xq.score || ''}" onchange="updateScore(${idx}, this.value)"></td>`;
+        html += `<td><input type="text" style="width:100px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; font-size:12px;" placeholder="输入城市" value="${xq.meetingCity || ''}" onchange="updateMeetingCity(${idx}, this.value)"></td>`;
 
         if (xq.spotCheck) {
             const dayStr = xq.days.map(d => DAY_NAMES[d-1]).join('、');
@@ -16741,6 +16746,10 @@ function toggleSpotCheck(idx, checked) {
     updateStats();
     updateBanner();
     triggerAutoSave();
+}
+
+function updateMeetingCity(idx, val) {
+    xqState[idx].meetingCity = val.trim();
 }
 
 function updateScore(idx, val) {
