@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小区经理培训抽查排期系统</title>
+    <title>总部汇总 - 培训抽查排期</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -16,17 +16,12 @@
         .header { background: linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%); color: #fff; padding: 24px 32px; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 22px; font-weight: 600; }
         .header .subtitle { font-size: 13px; opacity: 0.7; margin-top: 4px; }
-        .header .user-info { font-size: 13px; opacity: 0.9; display: flex; align-items: center; gap: 8px; }
-        .header .user-info .avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .header .badge-hq { background: #ff4d4f; color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
         .container { max-width: 1600px; margin: 0 auto; padding: 24px; }
         .stats-bar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
         .stat-card { background: var(--card); border-radius: var(--radius); padding: 16px 24px; box-shadow: var(--shadow); flex: 1; min-width: 140px; }
         .stat-card .label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
         .stat-card .value { font-size: 28px; font-weight: 700; }
-        .stat-card .value.blue { color: var(--primary); }
-        .stat-card .value.green { color: var(--success); }
-        .stat-card .value.orange { color: var(--warning); }
-        .stat-card .value.red { color: var(--danger); }
         .toolbar { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
         .btn { padding: 8px 20px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -37,11 +32,6 @@
         .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--text); }
         .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
         .btn-danger { background: var(--danger); color: #fff; }
-        .btn-danger:hover:not(:disabled) { background: #ff7875; }
-        .info-banner { background: #fffbe6; border: 1px solid #ffe58f; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #8c6900; display: flex; align-items: center; gap: 8px; }
-        .info-banner.warn { background: #fff2f0; border-color: #ffccc7; color: #a8071a; }
-        .info-banner.ok { background: #f6ffed; border-color: #b7eb8f; color: #389e0d; }
-        .info-banner.info { background: #e6f4ff; border-color: #91caff; color: #1677ff; }
         .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px; }
         .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: space-between; }
         .card-body { padding: 0; }
@@ -49,199 +39,112 @@
         th { background: #fafafa; padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px; color: var(--text2); border-bottom: 2px solid var(--border); white-space: nowrap; }
         td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
         tr:hover { background: #fafbfc; }
-        tr.exempt { background: #f6ffed !important; opacity: 0.75; }
-        tr.exempt td.name-cell { text-decoration: line-through; color: #999; }
-        .check-cell { text-align: center; width: 50px; }
-        .check-cell input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
-        .score-cell { width: 80px; }
-        .score-input { width: 60px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text); }
-        .score-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(22,119,255,0.2); }
-        .schedule-cell { text-align: center; font-weight: 600; width: 55px; }
-        .schedule-cell.active { background: #e6f4ff; color: var(--primary); border-radius: 4px; padding: 4px 0; }
-        .schedule-cell:not(.active) { color: transparent; }
-        .schedule-cell:hover:not(.active) { color: #ccc; background: #fafafa; border-radius: 4px; }
         .badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; }
-        .badge-blue { background: #e6f4ff; color: #1677ff; }
         .badge-green { background: #f6ffed; color: #389e0d; }
         .badge-orange { background: #fff7e6; color: #d48806; }
         .badge-red { background: #fff2f0; color: #cf1322; }
-        .shop-detail-row { background: #fafafa; }
-        .shop-detail-row td { padding: 6px 12px 6px 48px; font-size: 12px; color: #666; border-bottom: 1px dashed #f0f0f0; }
-        .shop-detail-row:hover { background: #f5f5f5; }
-        .expand-btn { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px; color: var(--primary); font-size: 12px; }
-        .expand-btn:hover { text-decoration: underline; }
+        .badge-blue { background: #e6f4ff; color: #1677ff; }
+        .info-banner { background: #e6f4ff; border: 1px solid #91caff; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #1677ff; display: flex; align-items: center; gap: 8px; }
+        .region-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+        .region-card-header { padding: 12px 20px; background: #fafafa; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+        .region-card-header:hover { background: #f0f0f0; }
+        .region-card-header .name { font-weight: 600; font-size: 15px; }
+        .region-card-header .meta { font-size: 12px; color: var(--text2); display: flex; gap: 12px; }
+        .region-card-body { padding: 0; }
+        .region-card-body.collapsed { display: none; }
         .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 2000; transform: translateX(120%); transition: transform 0.3s; }
         .toast.show { transform: translateX(0); }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
-        .toast.warning { background: var(--warning); }
-        .legend { display: flex; gap: 16px; font-size: 12px; color: var(--text2); padding: 8px 0; }
-        .legend-item { display: flex; align-items: center; gap: 4px; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .log-panel { margin-top: 20px; }
-        .log-content { padding: 16px; max-height: 300px; overflow-y: auto; font-family: "SF Mono",Menlo,monospace; font-size: 12px; }
-        .log-entry { padding: 4px 0; border-bottom: 1px solid #f5f5f5; }
-        .log-entry .time { color: #999; margin-right: 8px; }
-        .log-entry.success { color: var(--success); }
-        .log-entry.warn { color: var(--warning); }
-        .log-entry.error { color: var(--danger); }
-        .log-entry.info { color: var(--primary); }
-        /* Login overlay */
-        .login-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 3000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-        .login-box { background: var(--card); border-radius: 16px; padding: 48px; box-shadow: 0 8px 40px rgba(0,0,0,0.12); text-align: center; max-width: 400px; width: 90%; }
-        .login-box h2 { margin-bottom: 8px; font-size: 20px; }
-        .login-box p { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
-        .login-box .qr-placeholder { width: 200px; height: 200px; margin: 0 auto 20px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-direction: column; cursor: pointer; border: 2px dashed var(--border); transition: all 0.3s; }
-        .login-box .qr-placeholder:hover { border-color: var(--primary); background: #e6f4ff; }
-        .login-box .qr-placeholder .icon { font-size: 48px; margin-bottom: 8px; }
-        .login-box .qr-placeholder .text { font-size: 13px; color: var(--text2); }
-        .login-loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px; }
-        .login-loading .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); z-index: 3000; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .save-status { font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 4px; }
-        .save-status.saved { color: var(--success); }
-        .save-status.saving { color: var(--primary); }
-        .save-status.error { color: var(--danger); }
+        .score-low { background: #fff2f0 !important; }
+        .score-low td { font-weight: 600; }
+        .tab-bar { display: flex; gap: 0; margin-bottom: 20px; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+        .tab { padding: 12px 24px; cursor: pointer; font-size: 14px; font-weight: 500; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .tab:hover { background: #f5f5f5; }
+        .tab.active { border-bottom-color: var(--primary); color: var(--primary); background: #e6f4ff; }
+        .filter-bar { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .filter-bar select { padding: 8px 32px 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #fff; }
+        .no-data { text-align: center; padding: 60px 20px; color: #999; font-size: 14px; }
+        .no-data .icon { font-size: 48px; margin-bottom: 12px; }
     </style>
 </head>
 <body>
 
-<!-- Login Overlay -->
-<div class="login-overlay" id="loginOverlay">
-    <div class="login-box">
-        <h2>🏪 培训抽查排期系统</h2>
-        <p>请选择你的身份</p>
-        <div style="text-align:left; margin-bottom:20px;">
-            <label style="font-size:13px; color:var(--text2); display:block; margin-bottom:6px;">大区经理姓名</label>
-            <select id="regionSelect" style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:15px; background:#fff; cursor:pointer;">
-                <option value="">-- 请选择 --</option>
-            </select>
-        </div>
-        <button class="btn btn-primary" style="width:100%; padding:12px; font-size:15px; border-radius:8px;" onclick="handleRegionSelect()" id="loginBtn" disabled>进入系统</button>
-    </div>
-</div>
-
-<div class="header" id="mainHeader" style="display:none;">
+<div class="header">
     <div>
-        <h1>🏪 小区经理培训抽查排期系统</h1>
-        <div class="subtitle">大区选人 · 小区抽查 · 培训排期 · 一键导出</div>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+            <h1>📊 培训抽查排期 - 总部汇总</h1>
+            <span class="badge-hq">总部视图</span>
+        </div>
+        <div class="subtitle">实时查看所有大区经理的抽查排期与评分数据</div>
     </div>
     <div style="display:flex; align-items:center; gap:16px;">
-        <div class="save-status" id="saveStatus"></div>
-        <div class="user-info">
-            <div class="avatar">👤</div>
-            <span id="userName"></span>
-        </div>
+        <button class="btn btn-primary" onclick="refreshData()" id="refreshBtn">🔄 刷新数据</button>
+        <button class="btn btn-success" onclick="exportAll()">📥 导出汇总</button>
+        <button class="btn btn-outline" onclick="exportLowestScores()">🔽 导出各区最低分</button>
         <div style="font-size:12px; opacity:0.6;" id="currentTime"></div>
     </div>
 </div>
 
-<div class="container" id="mainContainer" style="display:none;">
-    <!-- Region info (auto-detected) -->
-    <div class="card" style="margin-bottom: 20px;">
-        <div class="card-header">
-            <span>👤 当前大区经理</span>
-            <span id="selectedRegionLabel" style="font-size:13px; color:var(--primary); font-weight:400;"></span>
-        </div>
-        <div class="card-body" style="padding: 16px 20px;">
-            <div style="font-size:18px; font-weight:600;" id="regionName"></div>
-            <div style="font-size:13px; color:var(--text2); margin-top:4px;" id="regionMeta"></div>
-        </div>
-    </div>
-
+<div class="container">
     <!-- Stats -->
-    <div class="stats-bar" id="statsBar" style="display:none;">
+    <div class="stats-bar" id="statsBar">
         <div class="stat-card">
-            <div class="label">小区经理总数</div>
-            <div class="value blue" id="statTotal">0</div>
+            <div class="label">已提交大区</div>
+            <div class="value" id="statSubmitted" style="color:var(--primary);">0</div>
         </div>
         <div class="stat-card">
-            <div class="label">需抽查</div>
-            <div class="value orange" id="statSpotCheck">0</div>
+            <div class="label">未提交大区</div>
+            <div class="value" id="statPending" style="color:#999;">0</div>
         </div>
         <div class="stat-card">
-            <div class="label">已免检</div>
-            <div class="value green" id="statExempt">0</div>
+            <div class="label">抽查小区经理总数</div>
+            <div class="value" id="statSpotCheck" style="color:var(--warning);">0</div>
         </div>
         <div class="stat-card">
-            <div class="label">管辖门店总数</div>
-            <div class="value" id="statShops" style="color:#722ed1;">0</div>
+            <div class="label">平均评分</div>
+            <div class="value" id="statAvgScore" style="color:#722ed1;">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">最低分小区经理</div>
+            <div class="value" id="statLowest" style="color:var(--danger);">--</div>
         </div>
     </div>
 
-    <!-- Info Banner -->
-    <div class="info-banner" id="infoBanner" style="display:none;">
-        ⚡ 勾选要抽查的小区经理（2~3名），其余默认免检
+    <!-- Tab bar -->
+    <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('all')" id="tabAll">📋 全部大区</div>
+        <div class="tab" onclick="switchTab('ranking')" id="tabRanking">🏆 分数排名</div>
+        <div class="tab" onclick="switchTab('lowest')" id="tabLowest">🔽 各区最低分</div>
     </div>
 
-    <!-- Toolbar -->
-    <div class="toolbar" id="toolbar" style="display:none;">
-        <button class="btn btn-primary" onclick="saveData()" id="saveBtn">💾 保存到云端</button>
-        <button class="btn btn-success" onclick="exportExcel()">📥 导出 Excel</button>
-        <button class="btn btn-outline" onclick="resetAll()">🔃 重置所有</button>
-        <div style="flex:1;"></div>
-        <div class="legend">
-            <div class="legend-item"><div class="legend-dot" style="background:#e6f4ff;"></div> 培训日</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#f6ffed;"></div> 免检</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#fff2f0;"></div> 待抽查</div>
-        </div>
-    </div>
+    <!-- All regions view -->
+    <div id="viewAll"></div>
 
-    <!-- Main Table -->
-    <div class="card" id="mainCard" style="display:none;">
-        <div class="card-header">
-            <span>📅 小区经理培训排期表</span>
-            <span style="font-size:12px; font-weight:400; color:#999;" id="tableNote"></span>
-        </div>
-        <div class="card-body" style="overflow-x:auto;">
-            <table id="mainTable">
-                <thead>
-                    <tr>
-                        <th style="width:30px;"></th>
-                        <th>小区经理</th>
-                        <th>主要城市</th>
-                        <th>管辖门店</th>
-                        <th class="schedule-cell">周日<br><span style="font-weight:400;font-size:11px;color:#999">5/18</span></th>
-                        <th class="schedule-cell">周一<br><span style="font-weight:400;font-size:11px;color:#999">5/19</span></th>
-                        <th class="schedule-cell">周二<br><span style="font-weight:400;font-size:11px;color:#999">5/20</span></th>
-                        <th class="schedule-cell">周三<br><span style="font-weight:400;font-size:11px;color:#999">5/21</span></th>
-                        <th class="schedule-cell">周四<br><span style="font-weight:400;font-size:11px;color:#999">5/22</span></th>
-                        <th class="check-cell">抽查</th>
-                        <th class="score-cell">现场评定<br>分数</th>
-                        <th>状态</th>
-                    </tr>
-                </thead>
-                <tbody id="mainBody"></tbody>
-            </table>
-        </div>
-    </div>
+    <!-- Ranking view -->
+    <div id="viewRanking" style="display:none;"></div>
 
-    <!-- Log -->
-    <div class="card log-panel" id="logCard" style="display:none;">
-        <div class="card-header">
-            <span>📜 操作日志</span>
-            <button class="btn btn-outline" style="padding:4px 12px; font-size:12px;" onclick="clearLog()">清空</button>
-        </div>
-        <div class="log-content" id="logContent">
-            <div class="log-entry"><span class="time">--:--</span> 系统就绪</div>
-        </div>
-    </div>
+    <!-- Lowest scores view -->
+    <div id="viewLowest" style="display:none;"></div>
+</div>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div style="font-size:14px; color:var(--text2);">正在加载数据...</div>
 </div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
-// ==================== CONFIG ====================
-const GITHUB_TOKEN = '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';
+const GITHUB_TOKEN = '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';
 const GITHUB_REPO = '1527032392-crypto/inspector-scheduler';
 const GITHUB_API = `https://api.github.com/repos/${GITHUB_REPO}/issues`;
-const SCF_AUTH_URL = 'https://1309468043-0j0txigji9.ap-guangzhou.tencentscf.com';
-const WEWORK_CORP_ID = 'ww04bd2fbf2bb53432';
-const WEWORK_AGENT_ID = '1000296';
 const ISSUE_LABEL = 'xq-scheduler-data';
-
-// ==================== DATA ====================
 const STORE_DATA = {
   "付钟庆": [
     {
@@ -16432,425 +16335,405 @@ const STORE_DATA = {
 const DAY_NAMES = ['周日','周一','周二','周三','周四'];
 const DAY_DATES = ['5/18','5/19','5/20','5/21','5/22'];
 
-// State
-let currentUser = null; // { userid, name }
-let currentRegion = null;
-let xqState = [];
-let githubIssueNumber = null; // Track the issue for updates
-let autoSaveTimer = null;
-
-// ==================== AUTH (Simple Region Select) ====================
-function initRegionSelect() {
-    const select = document.getElementById('regionSelect');
-    const regionNames = Object.keys(STORE_DATA).sort();
-    regionNames.forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        select.appendChild(opt);
-    });
-    select.addEventListener('change', () => {
-        document.getElementById('loginBtn').disabled = !select.value;
-    });
-}
-
-function handleRegionSelect() {
-    const select = document.getElementById('regionSelect');
-    const name = select.value;
-    if (!name) return;
-    currentUser = { name };
-    currentRegion = name;
-    enterApp();
-}
-
-// ==================== GITHUB STORAGE ====================
-function buildSavePayload() {
-    return {
-        region: currentRegion,
-        data: xqState.map(xq => ({
-            name: xq.name,
-            city: xq.city,
-            shopCount: xq.shopCount,
-            days: xq.days,
-            spotCheck: xq.spotCheck,
-            score: xq.score || ''
-        })),
-        updatedAt: new Date().toISOString()
-    };
-}
-
-async function saveData() {
-    if (!currentRegion) return;
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = '⏳ 保存中...';
-    updateSaveStatus('saving', '保存中...');
-
-    try {
-        const payload = buildSavePayload();
-        const body = JSON.stringify(payload, null, 2);
-
-        if (githubIssueNumber) {
-            // Update existing issue
-            const resp = await fetch(`${GITHUB_API}/${githubIssueNumber}`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `token ${GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ body })
-            });
-            if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
-        } else {
-            // Create new issue
-            const resp = await fetch(GITHUB_API, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `token ${GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    title: `[培训排期] ${currentRegion}`,
-                    body,
-                    labels: [ISSUE_LABEL]
-                })
-            });
-            if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
-            const issue = await resp.json();
-            githubIssueNumber = issue.number;
-        }
-
-        updateSaveStatus('saved', `已保存 ${new Date().toLocaleTimeString('zh-CN')}`);
-        addLog('数据已保存到云端', 'success');
-        showToast('保存成功！', 'success');
-    } catch (err) {
-        console.error('Save error:', err);
-        updateSaveStatus('error', '保存失败');
-        addLog(`保存失败：${err.message}`, 'error');
-        showToast('保存失败，请重试', 'error');
-    } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = '💾 保存到云端';
-    }
-}
-
-async function loadData() {
-    if (!currentRegion) return;
-    try {
-        // Search for existing issue
-        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=open&per_page=100`, {
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
-        if (!resp.ok) return;
-        const issues = await resp.json();
-
-        const issue = issues.find(i => i.title === `[培训排期] ${currentRegion}`);
-        if (!issue) return;
-
-        githubIssueNumber = issue.number;
-        const payload = JSON.parse(issue.body);
-
-        // Restore state
-        if (payload.data && Array.isArray(payload.data)) {
-            xqState = payload.data.map(saved => {
-                const original = STORE_DATA[currentRegion].find(xq => xq.name === saved.name);
-                return {
-                    name: saved.name,
-                    city: saved.city || (original ? original.city : ''),
-                    shopCount: saved.shopCount || (original ? original.shopCount : 0),
-                    shops: original ? original.shops : [],
-                    days: saved.days || [1, 2],
-                    spotCheck: saved.spotCheck || false,
-                    score: saved.score || '',
-                    expanded: false
-                };
-            });
-        }
-
-        if (payload.updatedAt) {
-            const updateTime = new Date(payload.updatedAt).toLocaleString('zh-CN');
-            updateSaveStatus('saved', `上次保存 ${updateTime}`);
-        }
-        addLog('已从云端加载上次保存的数据', 'info');
-    } catch (err) {
-        console.error('Load error:', err);
-        // Silent fail — user starts fresh
-    }
-}
-
-function updateSaveStatus(type, text) {
-    const el = document.getElementById('saveStatus');
-    el.className = `save-status ${type}`;
-    el.textContent = type === 'saved' ? '✅ ' + text : type === 'saving' ? '⏳ ' + text : '❌ ' + text;
-}
+let allRegionData = {}; // { regionName: { data: [...], updatedAt, issueNumber } }
+let currentTab = 'all';
+let allRegionNames = [];
 
 // ==================== INIT ====================
-async function init() {
+function init() {
+    allRegionNames = Object.keys(STORE_DATA).sort();
     updateTime();
     setInterval(updateTime, 60000);
-
-    // Populate region select dropdown
-    initRegionSelect();
-
-    // Check session
-    const session = sessionStorage.getItem('xq_scheduler_user');
-    if (session) {
-        currentUser = JSON.parse(session);
-        const regionNames = Object.keys(STORE_DATA);
-        const matched = regionNames.find(n => n === currentUser.name);
-        if (matched) {
-            currentRegion = matched;
-            enterApp();
-            return;
-        }
-    }
-}
-
-function enterApp() {
-    sessionStorage.setItem('xq_scheduler_user', JSON.stringify(currentUser));
-
-    // Hide login, show app
-    document.getElementById('loginOverlay').style.display = 'none';
-    document.getElementById('mainHeader').style.display = 'flex';
-    document.getElementById('mainContainer').style.display = 'block';
-    document.getElementById('userName').textContent = currentUser.name;
-
-    // Show region info
-    document.getElementById('regionName').textContent = currentRegion;
-    const xqList = STORE_DATA[currentRegion];
-    document.getElementById('regionMeta').textContent = `${xqList.length} 位小区经理 · ${xqList.reduce((s,x) => s + x.shopCount, 0)} 家门店`;
-    document.getElementById('selectedRegionLabel').textContent = '已选择身份';
-
-    // Build xqState
-    xqState = xqList.map(xq => ({
-        name: xq.name,
-        city: xq.city,
-        shopCount: xq.shopCount,
-        shops: xq.shops,
-        days: [1, 2],
-        spotCheck: false,
-        score: '',
-        expanded: false
-    }));
-
-    // Show UI
-    document.getElementById('statsBar').style.display = 'flex';
-    document.getElementById('infoBanner').style.display = 'flex';
-    document.getElementById('toolbar').style.display = 'flex';
-    document.getElementById('mainCard').style.display = 'block';
-    document.getElementById('logCard').style.display = 'block';
-    document.getElementById('tableNote').textContent = `${currentRegion} · ${xqState.length} 位小区经理`;
-
-    renderTable();
-    updateStats();
-    updateBanner();
-
-    addLog(`${currentUser.name} 登录成功，自动加载：${currentRegion}`, 'success');
-
-    // Load saved data from GitHub
-    loadData().then(() => {
-        renderTable();
-        updateStats();
-        updateBanner();
-    });
+    refreshData();
 }
 
 function updateTime() {
     document.getElementById('currentTime').textContent = new Date().toLocaleString('zh-CN');
 }
 
-// ==================== RENDER ====================
-function renderTable() {
-    const tbody = document.getElementById('mainBody');
-    tbody.innerHTML = '';
+// ==================== DATA LOADING ====================
+async function refreshData() {
+    const btn = document.getElementById('refreshBtn');
+    btn.disabled = true;
+    document.getElementById('loadingOverlay').style.display = 'flex';
 
-    xqState.forEach((xq, idx) => {
-        const tr = document.createElement('tr');
-        if (!xq.spotCheck) tr.className = 'exempt';
+    try {
+        let page = 1;
+        let allIssues = [];
 
-        let html = '';
-        html += `<td><span class="expand-btn" onclick="toggleExpand(${idx})">${xq.expanded ? '▼' : '▶'}</span></td>`;
-        html += `<td class="name-cell" style="font-weight:600;">${xq.name}</td>`;
-        html += `<td>${xq.city}</td>`;
-        html += `<td><span class="badge badge-blue">${xq.shopCount} 家</span></td>`;
-
-        for (let d = 1; d <= 5; d++) {
-            const isActive = xq.days.includes(d);
-            html += `<td class="schedule-cell ${isActive ? 'active' : ''}" style="cursor:pointer; user-select:none;" onclick="toggleDay(${idx},${d})" title="点击切换培训日期">√</td>`;
-        }
-
-        html += `<td class="check-cell"><input type="checkbox" ${xq.spotCheck ? 'checked' : ''} onchange="toggleSpotCheck(${idx}, this.checked)"></td>`;
-        html += `<td class="score-cell"><input type="number" class="score-input" min="0" max="100" placeholder="--" value="${xq.score || ''}" onchange="updateScore(${idx}, this.value)"></td>`;
-
-        if (xq.spotCheck) {
-            const dayStr = xq.days.map(d => DAY_NAMES[d-1]).join('、');
-            html += `<td><span class="badge badge-orange">抽查 · ${dayStr}</span></td>`;
-        } else {
-            html += `<td><span class="badge badge-green">免检</span></td>`;
-        }
-
-        tr.innerHTML = html;
-        tbody.appendChild(tr);
-
-        if (xq.expanded) {
-            xq.shops.forEach(shop => {
-                const sr = document.createElement('tr');
-                sr.className = 'shop-detail-row';
-                sr.innerHTML = `<td></td><td colspan="11">🏪 ${shop.name} <span style="color:#999; margin-left:8px;">${shop.city} · ${shop.district || ''} · ${shop.address || ''}</span></td>`;
-                tbody.appendChild(sr);
+        while (true) {
+            const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=open&per_page=100&page=${page}`, {
+                headers: {
+                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
             });
+            if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
+            const issues = await resp.json();
+            if (issues.length === 0) break;
+            allIssues = allIssues.concat(issues);
+            page++;
         }
-    });
-}
 
-// ==================== ACTIONS ====================
-function toggleExpand(idx) {
-    xqState[idx].expanded = !xqState[idx].expanded;
-    renderTable();
-}
+        allRegionData = {};
+        allIssues.forEach(issue => {
+            try {
+                const payload = JSON.parse(issue.body);
+                if (payload.region && payload.data) {
+                    allRegionData[payload.region] = {
+                        data: payload.data,
+                        updatedAt: payload.updatedAt || issue.updated_at,
+                        issueNumber: issue.number
+                    };
+                }
+            } catch (e) { /* skip invalid */ }
+        });
 
-function toggleDay(idx, day) {
-    const xq = xqState[idx];
-    const i = xq.days.indexOf(day);
-    if (i >= 0) xq.days.splice(i, 1);
-    else { xq.days.push(day); xq.days.sort(); }
-    renderTable();
-    updateBanner();
-    showToast(`${xq.name} 培训日期已更新`, 'success');
-    triggerAutoSave();
-}
-
-function toggleSpotCheck(idx, checked) {
-    const xq = xqState[idx];
-    const currentSpotCount = xqState.filter(x => x.spotCheck).length;
-
-    if (checked && currentSpotCount >= 3) {
-        showToast('每位大区经理最多抽查 3 名小区经理', 'error');
-        renderTable();
-        return;
+        renderAll();
+        showToast(`已加载 ${Object.keys(allRegionData).length} 个大区的数据`, 'success');
+    } catch (err) {
+        console.error('Load error:', err);
+        showToast('加载数据失败：' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        document.getElementById('loadingOverlay').style.display = 'none';
     }
+}
 
-    xq.spotCheck = checked;
-    addLog(`${xq.name} ${checked ? '设为抽查' : '设为免检'}`, checked ? 'success' : 'warn');
-    renderTable();
+// ==================== RENDER ====================
+function renderAll() {
     updateStats();
-    updateBanner();
-    triggerAutoSave();
-}
-
-function updateScore(idx, val) {
-    xqState[idx].score = val ? Number(val) : '';
-    addLog(`${xqState[idx].name} 现场评定分数：${val || '--'}`, 'info');
-    triggerAutoSave();
-}
-
-function triggerAutoSave() {
-    if (autoSaveTimer) clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(() => {
-        saveData();
-    }, 10000); // Auto save 10 seconds after last change
+    renderViewAll();
+    renderViewRanking();
+    renderViewLowest();
 }
 
 function updateStats() {
-    const total = xqState.length;
-    const spotCheck = xqState.filter(x => x.spotCheck).length;
-    const exempt = total - spotCheck;
-    const totalShops = xqState.reduce((sum, x) => sum + x.shopCount, 0);
+    const submitted = Object.keys(allRegionData).length;
+    const pending = allRegionNames.length - submitted;
+    const totalSpotCheck = Object.values(allRegionData).reduce((sum, r) => {
+        return sum + r.data.filter(x => x.spotCheck).length;
+    }, 0);
 
-    document.getElementById('statTotal').textContent = total;
-    document.getElementById('statSpotCheck').textContent = spotCheck;
-    document.getElementById('statExempt').textContent = exempt;
-    document.getElementById('statShops').textContent = totalShops;
+    // Calculate avg score from spotted managers who have scores
+    const allScores = [];
+    Object.values(allRegionData).forEach(r => {
+        r.data.forEach(x => {
+            if (x.spotCheck && x.score) allScores.push(Number(x.score));
+        });
+    });
+    const avgScore = allScores.length > 0 ? (allScores.reduce((a,b) => a+b, 0) / allScores.length).toFixed(1) : '--';
+
+    // Find lowest
+    let lowest = { name: '--', score: '--', region: '--' };
+    Object.entries(allRegionData).forEach(([region, r]) => {
+        r.data.forEach(x => {
+            if (x.spotCheck && x.score !== '' && x.score !== undefined) {
+                const s = Number(x.score);
+                if (lowest.score === '--' || s < lowest.score) {
+                    lowest = { name: x.name, score: s, region: region };
+                }
+            }
+        });
+    });
+
+    document.getElementById('statSubmitted').textContent = submitted;
+    document.getElementById('statPending').textContent = pending;
+    document.getElementById('statSpotCheck').textContent = totalSpotCheck;
+    document.getElementById('statAvgScore').textContent = avgScore;
+    document.getElementById('statLowest').textContent = lowest.score !== '--' ? `${lowest.score}` : '--';
+    document.getElementById('statLowest').title = lowest.score !== '--' ? `${lowest.region} - ${lowest.name}` : '';
 }
 
-function updateBanner() {
-    const banner = document.getElementById('infoBanner');
-    const spotCheck = xqState.filter(x => x.spotCheck).length;
-    const exempt = xqState.length - spotCheck;
+function renderViewAll() {
+    const container = document.getElementById('viewAll');
 
-    if (spotCheck >= 2 && spotCheck <= 3) {
-        banner.className = 'info-banner ok';
-        banner.innerHTML = `✅ 已选择 ${spotCheck} 名小区经理抽查，${exempt} 名免检`;
-    } else if (spotCheck > 3) {
-        banner.className = 'info-banner warn';
-        banner.innerHTML = `⚠️ 抽查人数超限（${spotCheck}/3），请减少`;
-    } else {
-        banner.className = 'info-banner';
-        banner.innerHTML = `⚡ 勾选要抽查的小区经理（2~3名），当前已选 ${spotCheck} 名，其余默认免检`;
+    if (allRegionNames.length === 0) {
+        container.innerHTML = '<div class="no-data"><div class="icon">📭</div>暂无数据</div>';
+        return;
+    }
+
+    let html = '';
+
+    allRegionNames.forEach(region => {
+        const rd = allRegionData[region];
+        const isSubmitted = !!rd;
+        const xqList = STORE_DATA[region];
+
+        html += `<div class="region-card">`;
+        html += `<div class="region-card-header" onclick="this.nextElementSibling.classList.toggle('collapsed')">`;
+        html += `<span class="name">${isSubmitted ? '✅' : '⏳'} ${region}</span>`;
+        html += `<span class="meta">`;
+        if (isSubmitted) {
+            const spotCount = rd.data.filter(x => x.spotCheck).length;
+            html += `<span>抽查 ${spotCount} 人</span>`;
+            html += `<span>更新于 ${new Date(rd.updatedAt).toLocaleString('zh-CN')}</span>`;
+        } else {
+            html += `<span style="color:#999;">未提交</span>`;
+        }
+        html += `</span></div>`;
+
+        html += `<div class="region-card-body ${isSubmitted ? '' : 'collapsed'}">`;
+        if (isSubmitted) {
+            html += `<table><thead><tr>`;
+            html += `<th>小区经理</th><th>城市</th><th>门店数</th>`;
+            DAY_DATES.forEach((d, i) => { html += `<th>${DAY_NAMES[i]}<br><span style="font-weight:400;font-size:11px;color:#999">${d}</span></th>`; });
+            html += `<th>是否抽查</th><th>现场评定分数</th><th>状态</th>`;
+            html += `</tr></thead><tbody>`;
+
+            rd.data.forEach(x => {
+                const isLow = x.score !== '' && x.score !== undefined && Number(x.score) < 60;
+                html += `<tr class="${isLow ? 'score-low' : ''}">`;
+                html += `<td style="font-weight:600;">${x.name}</td>`;
+                html += `<td>${x.city || ''}</td>`;
+                html += `<td>${x.shopCount || ''}</td>`;
+
+                for (let d = 1; d <= 5; d++) {
+                    const isActive = x.days && x.days.includes(d);
+                    html += `<td style="text-align:center;">${isActive ? '✅' : ''}</td>`;
+                }
+
+                html += `<td style="text-align:center;">${x.spotCheck ? '<span class="badge badge-orange">抽查</span>' : '<span class="badge badge-green">免检</span>'}</td>`;
+                html += `<td style="text-align:center; font-weight:700; color:${x.score ? (Number(x.score) < 60 ? 'var(--danger)' : 'var(--text)') : '#999'};">${x.score || '--'}</td>`;
+                html += `<td>${x.spotCheck ? '抽查' : '免检'}</td>`;
+                html += `</tr>`;
+            });
+
+            html += `</tbody></table>`;
+        }
+        html += `</div></div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderViewRanking() {
+    const container = document.getElementById('viewRanking');
+
+    // Collect all spotted managers with scores
+    const allSpotted = [];
+    Object.entries(allRegionData).forEach(([region, rd]) => {
+        rd.data.forEach(x => {
+            if (x.spotCheck) {
+                allSpotted.push({
+                    region,
+                    name: x.name,
+                    city: x.city || '',
+                    score: x.score !== '' && x.score !== undefined ? Number(x.score) : null,
+                    days: x.days || []
+                });
+            }
+        });
+    });
+
+    // Sort by score ascending (lowest first)
+    allSpotted.sort((a, b) => {
+        if (a.score === null && b.score === null) return 0;
+        if (a.score === null) return 1;
+        if (b.score === null) return -1;
+        return a.score - b.score;
+    });
+
+    if (allSpotted.length === 0) {
+        container.innerHTML = '<div class="no-data"><div class="icon">📭</div>暂无抽查数据</div>';
+        return;
+    }
+
+    let html = `<div class="card"><div class="card-header"><span>🏆 全部抽查小区经理 - 分数排名（低→高）</span><span style="font-size:12px;color:#999;">共 ${allSpotted.length} 人</span></div>`;
+    html += `<div class="card-body" style="overflow-x:auto;"><table>`;
+    html += `<thead><tr><th>排名</th><th>大区经理</th><th>小区经理</th><th>城市</th><th>现场评定分数</th><th>培训日期</th><th>状态</th></tr></thead><tbody>`;
+
+    allSpotted.forEach((x, i) => {
+        const isLow = x.score !== null && x.score < 60;
+        html += `<tr class="${isLow ? 'score-low' : ''}">`;
+        html += `<td style="font-weight:600; ${i < 3 ? 'color:var(--danger);' : ''}">${i + 1}</td>`;
+        html += `<td>${x.region}</td>`;
+        html += `<td style="font-weight:600;">${x.name}</td>`;
+        html += `<td>${x.city}</td>`;
+        html += `<td style="text-align:center; font-weight:700; font-size:16px; color:${x.score !== null ? (x.score < 60 ? 'var(--danger)' : x.score < 80 ? 'var(--warning)' : 'var(--success)') : '#999'};">${x.score !== null ? x.score : '--'}</td>`;
+        html += `<td>${x.days.map(d => DAY_NAMES[d-1]).join('、')}</td>`;
+        html += `<td>${isLow ? '<span class="badge badge-red">需关注</span>' : '<span class="badge badge-green">正常</span>'}</td>`;
+        html += `</tr>`;
+    });
+
+    html += `</tbody></table></div></div>`;
+    container.innerHTML = html;
+}
+
+function renderViewLowest() {
+    const container = document.getElementById('viewLowest');
+
+    // Find lowest score manager per region
+    const lowestPerRegion = [];
+    Object.entries(allRegionData).forEach(([region, rd]) => {
+        const spotted = rd.data.filter(x => x.spotCheck && x.score !== '' && x.score !== undefined);
+        if (spotted.length === 0) return;
+
+        let lowest = spotted[0];
+        spotted.forEach(x => {
+            if (Number(x.score) < Number(lowest.score)) lowest = x;
+        });
+
+        lowestPerRegion.push({
+            region,
+            name: lowest.name,
+            city: lowest.city || '',
+            score: Number(lowest.score),
+            days: lowest.days || [],
+            totalSpotted: rd.data.filter(x => x.spotCheck).length
+        });
+    });
+
+    // Sort by score
+    lowestPerRegion.sort((a, b) => a.score - b.score);
+
+    // Also find regions that haven't submitted
+    const notSubmitted = allRegionNames.filter(n => !allRegionData[n]);
+
+    let html = '';
+
+    if (lowestPerRegion.length > 0) {
+        html += `<div class="card"><div class="card-header"><span>🔽 各大区最低分小区经理</span><span style="font-size:12px;color:#999;">共 ${lowestPerRegion.length} 个已提交大区</span></div>`;
+        html += `<div class="card-body" style="overflow-x:auto;"><table>`;
+        html += `<thead><tr><th>大区经理</th><th>最低分小区经理</th><th>城市</th><th>分数</th><th>培训日期</th><th>抽查人数</th><th>建议</th></tr></thead><tbody>`;
+
+        lowestPerRegion.forEach(x => {
+            const needFocus = x.score < 60;
+            html += `<tr class="${needFocus ? 'score-low' : ''}">`;
+            html += `<td style="font-weight:600;">${x.region}</td>`;
+            html += `<td>${x.name}</td>`;
+            html += `<td>${x.city}</td>`;
+            html += `<td style="text-align:center; font-weight:700; font-size:18px; color:${x.score < 60 ? 'var(--danger)' : x.score < 80 ? 'var(--warning)' : 'var(--success)'};">${x.score}</td>`;
+            html += `<td>${x.days.map(d => DAY_NAMES[d-1]).join('、')}</td>`;
+            html += `<td style="text-align:center;">${x.totalSpotted}</td>`;
+            html += `<td>${needFocus ? '<span class="badge badge-red">重点抽查</span>' : x.score < 80 ? '<span class="badge badge-orange">关注</span>' : '<span class="badge badge-green">正常</span>'}</td>`;
+            html += `</tr>`;
+        });
+
+        html += `</tbody></table></div></div>`;
+    }
+
+    if (notSubmitted.length > 0) {
+        html += `<div class="info-banner" style="margin-top:16px;">⏳ 未提交数据的大区经理（${notSubmitted.length} 人）：${notSubmitted.join('、')}</div>`;
+    }
+
+    if (!html) {
+        html = '<div class="no-data"><div class="icon">📭</div>暂无数据</div>';
+    }
+
+    container.innerHTML = html;
+}
+
+// ==================== TABS ====================
+function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    if (tab === 'all') {
+        document.getElementById('tabAll').classList.add('active');
+        document.getElementById('viewAll').style.display = 'block';
+        document.getElementById('viewRanking').style.display = 'none';
+        document.getElementById('viewLowest').style.display = 'none';
+    } else if (tab === 'ranking') {
+        document.getElementById('tabRanking').classList.add('active');
+        document.getElementById('viewAll').style.display = 'none';
+        document.getElementById('viewRanking').style.display = 'block';
+        document.getElementById('viewLowest').style.display = 'none';
+    } else if (tab === 'lowest') {
+        document.getElementById('tabLowest').classList.add('active');
+        document.getElementById('viewAll').style.display = 'none';
+        document.getElementById('viewRanking').style.display = 'none';
+        document.getElementById('viewLowest').style.display = 'block';
     }
 }
 
 // ==================== EXPORT ====================
-function exportExcel() {
-    if (!currentRegion) { showToast('请先登录', 'error'); return; }
-    addLog('开始导出 Excel...', '');
-
+function exportAll() {
     const wb = XLSX.utils.book_new();
-    const headers = ['序号', '小区经理', '主要城市', '管辖门店数', '周日 5/18', '周一 5/19', '周二 5/20', '周三 5/21', '周四 5/22', '培训日期', '是否抽查', '现场评定分数', '状态'];
+
+    // Summary sheet
+    const summaryHeaders = ['大区经理', '状态', '抽查人数', '最低分', '最低分小区经理', '更新时间'];
+    const summaryRows = [summaryHeaders];
+
+    allRegionNames.forEach(region => {
+        const rd = allRegionData[region];
+        if (rd) {
+            const spotted = rd.data.filter(x => x.spotCheck);
+            const scored = spotted.filter(x => x.score !== '' && x.score !== undefined);
+            let lowest = { name: '--', score: '--' };
+            scored.forEach(x => {
+                if (lowest.score === '--' || Number(x.score) < lowest.score) {
+                    lowest = { name: x.name, score: Number(x.score) };
+                }
+            });
+            summaryRows.push([
+                region, '已提交', spotted.length,
+                lowest.score, lowest.name,
+                new Date(rd.updatedAt).toLocaleString('zh-CN')
+            ]);
+        } else {
+            summaryRows.push([region, '未提交', '', '', '', '']);
+        }
+    });
+
+    const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
+    ws1['!cols'] = [{wch:12},{wch:8},{wch:10},{wch:8},{wch:12},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, ws1, '大区汇总');
+
+    // Detail sheet - all spotted managers
+    const detailHeaders = ['大区经理', '小区经理', '城市', '门店数', '是否抽查', '现场评定分数', '培训日期', '状态'];
+    const detailRows = [detailHeaders];
+
+    Object.entries(allRegionData).forEach(([region, rd]) => {
+        rd.data.forEach(x => {
+            detailRows.push([
+                region, x.name, x.city || '', x.shopCount || '',
+                x.spotCheck ? '✓ 抽查' : '',
+                x.score || '',
+                x.days ? x.days.map(d => DAY_NAMES[d-1]).join('、') : '',
+                x.spotCheck ? '抽查' : '免检'
+            ]);
+        });
+    });
+
+    const ws2 = XLSX.utils.aoa_to_sheet(detailRows);
+    ws2['!cols'] = [{wch:12},{wch:12},{wch:10},{wch:8},{wch:10},{wch:14},{wch:14},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, ws2, '小区经理明细');
+
+    XLSX.writeFile(wb, `总部汇总_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`);
+    showToast('汇总导出成功！', 'success');
+}
+
+function exportLowestScores() {
+    const wb = XLSX.utils.book_new();
+    const headers = ['大区经理', '最低分小区经理', '城市', '分数', '培训日期', '抽查人数', '建议'];
     const rows = [headers];
 
-    xqState.forEach((xq, i) => {
-        const dayStr = xq.days.map(d => DAY_NAMES[d-1]).join('、');
+    Object.entries(allRegionData).forEach(([region, rd]) => {
+        const spotted = rd.data.filter(x => x.spotCheck && x.score !== '' && x.score !== undefined);
+        if (spotted.length === 0) {
+            rows.push([region, '', '', '', '', '', '无评分数据']);
+            return;
+        }
+        let lowest = spotted[0];
+        spotted.forEach(x => { if (Number(x.score) < Number(lowest.score)) lowest = x; });
+        const score = Number(lowest.score);
         rows.push([
-            i + 1, xq.name, xq.city, xq.shopCount,
-            xq.days.includes(1) ? '√' : '',
-            xq.days.includes(2) ? '√' : '',
-            xq.days.includes(3) ? '√' : '',
-            xq.days.includes(4) ? '√' : '',
-            xq.days.includes(5) ? '√' : '',
-            dayStr,
-            xq.spotCheck ? '✓ 抽查' : '',
-            xq.score || '',
-            xq.spotCheck ? '抽查' : '免检'
+            region, lowest.name, lowest.city || '', score,
+            lowest.days.map(d => DAY_NAMES[d-1]).join('、'),
+            rd.data.filter(x => x.spotCheck).length,
+            score < 60 ? '重点抽查' : score < 80 ? '关注' : '正常'
         ]);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:6},{wch:12},{wch:10},{wch:12},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:14},{wch:10},{wch:14},{wch:8}];
-    XLSX.utils.book_append_sheet(wb, ws, '小区经理抽查排期');
-
-    const filename = `${currentRegion}_小区抽查排期_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    addLog(`Excel 导出成功：${filename}`, 'success');
-    showToast('Excel 导出成功！', 'success');
-}
-
-// ==================== RESET ====================
-function resetAll() {
-    if (!confirm('确定要重置所有选择吗？')) return;
-    xqState.forEach(xq => {
-        xq.spotCheck = false;
-        xq.days = [1, 2];
-        xq.score = '';
-        xq.expanded = false;
-    });
-    renderTable();
-    updateStats();
-    updateBanner();
-    addLog('已重置所有选择', 'warn');
-    showToast('已重置', 'warning');
+    ws['!cols'] = [{wch:12},{wch:12},{wch:10},{wch:8},{wch:14},{wch:10},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, '各区最低分');
+    XLSX.writeFile(wb, `各区最低分_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`);
+    showToast('导出成功！', 'success');
 }
 
 // ==================== UTILS ====================
-function addLog(msg, type) {
-    const log = document.getElementById('logContent');
-    const now = new Date();
-    const time = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const entry = document.createElement('div');
-    entry.className = `log-entry ${type}`;
-    entry.innerHTML = `<span class="time">${time}</span> ${msg}`;
-    log.insertBefore(entry, log.firstChild);
-}
-
-function clearLog() {
-    document.getElementById('logContent').innerHTML = '<div class="log-entry"><span class="time">--:--</span> 日志已清空</div>';
-}
-
 function showToast(msg, type = 'success') {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
