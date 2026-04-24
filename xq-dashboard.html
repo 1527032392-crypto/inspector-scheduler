@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>培训抽查汇总看板</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #f0f2f5; --card: #fff; --primary: #1677ff; --success: #52c41a;
+            --warning: #faad14; --danger: #ff4d4f; --text: #1f2937; --text2: #6b7280;
+            --border: #e5e7eb; --shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff; padding: 20px 24px; box-shadow: var(--shadow); }
+        .header h1 { font-size: 22px; font-weight: 600; }
+        .header .subtitle { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+        .header .refresh-info { font-size: 12px; opacity: 0.7; margin-top: 6px; }
+        .header .refresh-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: #fff; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 10px; }
+        .header .refresh-btn:hover { background: rgba(255,255,255,0.3); }
+
+        .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; padding: 16px 24px; }
+        .stat-card { background: var(--card); border-radius: 8px; padding: 16px; box-shadow: var(--shadow); }
+        .stat-card .label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+        .stat-card .value { font-size: 28px; font-weight: 700; }
+        .stat-card .value.red { color: var(--danger); }
+        .stat-card .value.green { color: var(--success); }
+        .stat-card .value.blue { color: var(--primary); }
+
+        .container { padding: 0 24px 24px; }
+
+        .section-title { font-size: 16px; font-weight: 600; margin: 20px 0 12px; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { content: ''; width: 3px; height: 18px; background: var(--primary); border-radius: 2px; }
+
+        .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+        .filter-bar select, .filter-bar input { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #fff; }
+        .filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: var(--primary); }
+        .filter-bar label { font-size: 13px; color: var(--text2); }
+
+        .region-card { background: var(--card); border-radius: 10px; box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+        .region-header { padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        .region-header:hover { background: #f8fafc; }
+        .region-name { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .region-meta { font-size: 12px; color: var(--text2); }
+        .region-stats { display: flex; gap: 16px; align-items: center; }
+        .region-stats .tag { font-size: 12px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+        .tag-scored { background: #ecfdf5; color: #059669; }
+        .tag-unscored { background: #fef3c7; color: #d97706; }
+
+        .region-body { padding: 0 16px 14px; }
+        .region-body.collapsed { display: none; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f9fafb; padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text2); font-size: 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; }
+        tr:hover td { background: #f8fafc; }
+        .score-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-weight: 600; font-size: 13px; min-width: 36px; text-align: center; }
+        .score-high { background: #ecfdf5; color: #059669; }
+        .score-mid { background: #fef3c7; color: #d97706; }
+        .score-low { background: #fef2f2; color: #dc2626; }
+        .score-none { background: #f3f4f6; color: #9ca3af; }
+        .check-icon { color: var(--success); }
+        .uncheck-icon { color: #d1d5db; }
+        .day-dot { display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 4px; font-size: 11px; }
+        .day-active { background: #dbeafe; color: #1d4ed8; }
+        .day-inactive { background: #f3f4f6; color: #d1d5db; }
+
+        .ranking-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .rank-item { background: var(--card); border-radius: 8px; padding: 14px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px; }
+        .rank-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+        .rank-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #fff; }
+        .rank-2 { background: linear-gradient(135deg, #9ca3af, #6b7280); color: #fff; }
+        .rank-3 { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
+        .rank-other { background: #f3f4f6; color: #6b7280; }
+        .rank-info { flex: 1; }
+        .rank-name { font-weight: 600; font-size: 14px; }
+        .rank-detail { font-size: 12px; color: var(--text2); margin-top: 2px; }
+        .rank-score { font-size: 22px; font-weight: 700; }
+
+        .loading { text-align: center; padding: 60px 20px; color: var(--text2); }
+        .loading .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
+
+        @media (max-width: 640px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .container { padding: 0 12px 12px; }
+            .header { padding: 16px; }
+            .header h1 { font-size: 18px; }
+            .region-header { padding: 10px 12px; }
+            .region-body { padding: 0 10px 10px; }
+            th, td { padding: 6px 6px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>📊 培训抽查汇总看板</h1>
+    <div class="subtitle">总部视角 · 全部大区实时数据</div>
+    <div class="refresh-info">
+        <span id="lastUpdate">加载中...</span>
+        <button class="refresh-btn" onclick="loadData()">🔄 刷新</button>
+    </div>
+</div>
+
+<div class="stats-bar" id="statsBar">
+    <div class="stat-card"><div class="label">大区经理</div><div class="value blue" id="statRegions">--</div></div>
+    <div class="stat-card"><div class="label">小区经理</div><div class="value blue" id="statXq">--</div></div>
+    <div class="stat-card"><div class="label">已评分</div><div class="value green" id="statScored">--</div></div>
+    <div class="stat-card"><div class="label">未评分</div><div class="value red" id="statUnscored">--</div></div>
+    <div class="stat-card"><div class="label">平均分</div><div class="value" id="statAvg">--</div></div>
+</div>
+
+<div class="container">
+    <div class="filter-bar">
+        <label>大区经理：</label>
+        <select id="filterRegion" onchange="applyFilter()"><option value="">全部</option></select>
+        <label>评分状态：</label>
+        <select id="filterScore" onchange="applyFilter()">
+            <option value="">全部</option>
+            <option value="scored">已评分</option>
+            <option value="unscored">未评分</option>
+        </select>
+    </div>
+
+    <div class="section-title">小区经理评分排名</div>
+    <div class="ranking-grid" id="rankingGrid">
+        <div class="loading"><div class="spinner"></div><br>加载数据中...</div>
+    </div>
+
+    <div class="section-title">大区详细数据</div>
+    <div id="regionList">
+        <div class="loading"><div class="spinner"></div><br>加载数据中...</div>
+    </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+const GITHUB_TOKEN = 'YOUR_GITHUB_TOKEN_HERE';
+const GITHUB_REPO = '1527032392-crypto/inspector-scheduler';
+const GITHUB_API = `https://api.github.com/repos/${GITHUB_REPO}/issues`;
+const ISSUE_LABEL = 'xq-scheduler-data';
+
+// ==================== STATE ====================
+let allData = {}; // region -> [{ name, city, shopCount, days, spotCheck, score }]
+let currentFilter = { region: '', score: '' };
+
+// ==================== DATA LOADING ====================
+async function loadData() {
+    try {
+        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=all&per_page=100`, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+        if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
+        const issues = await resp.json();
+
+        allData = {};
+        for (const issue of issues) {
+            // Parse region name from title like "[培训排期] 付钟庆"
+            const match = issue.title.match(/\[培训排期\]\s*(.+)/);
+            if (!match) continue;
+            const region = match[1].trim();
+
+            try {
+                const payload = JSON.parse(issue.body);
+                if (payload.data && Array.isArray(payload.data)) {
+                    allData[region] = payload.data.map(d => ({
+                        name: d.name,
+                        city: d.city || '',
+                        shopCount: d.shopCount || 0,
+                        days: d.days || [],
+                        spotCheck: d.spotCheck || false,
+                        score: d.score || '',
+                        updatedAt: payload.updatedAt || ''
+                    }));
+                }
+            } catch (e) {
+                console.warn(`Failed to parse issue for ${region}:`, e);
+            }
+        }
+
+        renderStats();
+        renderFilterOptions();
+        renderRanking();
+        renderRegions();
+        document.getElementById('lastUpdate').textContent = '更新时间：' + new Date().toLocaleString('zh-CN');
+
+    } catch (err) {
+        console.error('Load data failed:', err);
+        document.getElementById('rankingGrid').innerHTML = `<div class="empty">❌ 加载失败：${err.message}</div>`;
+        document.getElementById('regionList').innerHTML = `<div class="empty">❌ 加载失败：${err.message}</div>`;
+    }
+}
+
+// ==================== RENDERING ====================
+function getAllXqList() {
+    const list = [];
+    for (const [region, xqList] of Object.entries(allData)) {
+        for (const xq of xqList) {
+            list.push({ ...xq, region });
+        }
+    }
+    return list;
+}
+
+function renderStats() {
+    const all = getAllXqList();
+    const scored = all.filter(x => x.score !== '' && x.score !== undefined && x.score !== null);
+    const unscored = all.filter(x => !scored.includes(x));
+    const avg = scored.length > 0 ? (scored.reduce((s, x) => s + Number(x.score), 0) / scored.length).toFixed(1) : '--';
+
+    document.getElementById('statRegions').textContent = Object.keys(allData).length;
+    document.getElementById('statXq').textContent = all.length;
+    document.getElementById('statScored').textContent = scored.length;
+    document.getElementById('statUnscored').textContent = unscored.length;
+    document.getElementById('statAvg').textContent = avg;
+}
+
+function renderFilterOptions() {
+    const select = document.getElementById('filterRegion');
+    select.innerHTML = '<option value="">全部</option>';
+    for (const region of Object.keys(allData).sort()) {
+        const opt = document.createElement('option');
+        opt.value = region;
+        opt.textContent = region;
+        select.appendChild(opt);
+    }
+}
+
+function applyFilter() {
+    currentFilter.region = document.getElementById('filterRegion').value;
+    currentFilter.score = document.getElementById('filterScore').value;
+    renderRanking();
+    renderRegions();
+}
+
+function getFilteredList() {
+    let list = getAllXqList();
+    if (currentFilter.region) {
+        list = list.filter(x => x.region === currentFilter.region);
+    }
+    if (currentFilter.score === 'scored') {
+        list = list.filter(x => x.score !== '' && x.score !== undefined && x.score !== null);
+    } else if (currentFilter.score === 'unscored') {
+        list = list.filter(x => x.score === '' || x.score === undefined || x.score === null);
+    }
+    return list;
+}
+
+function scoreClass(score) {
+    if (score === '' || score === undefined || score === null) return 'score-none';
+    const n = Number(score);
+    if (n >= 80) return 'score-high';
+    if (n >= 60) return 'score-mid';
+    return 'score-low';
+}
+
+function renderRanking() {
+    const list = getFilteredList().filter(x => x.score !== '' && x.score !== undefined && x.score !== null);
+    list.sort((a, b) => Number(b.score) - Number(a.score));
+
+    const grid = document.getElementById('rankingGrid');
+    if (list.length === 0) {
+        grid.innerHTML = '<div class="empty">暂无评分数据</div>';
+        return;
+    }
+
+    const top = list.slice(0, 20);
+    grid.innerHTML = top.map((xq, i) => {
+        const rankClass = i < 3 ? `rank-${i + 1}` : 'rank-other';
+        const sc = scoreClass(xq.score);
+        return `
+            <div class="rank-item">
+                <div class="rank-num ${rankClass}">${i + 1}</div>
+                <div class="rank-info">
+                    <div class="rank-name">${xq.name}</div>
+                    <div class="rank-detail">${xq.region} · ${xq.city || ''} · ${xq.shopCount}店</div>
+                </div>
+                <div class="score-badge ${sc}">${xq.score}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderRegions() {
+    const container = document.getElementById('regionList');
+    const regions = Object.keys(allData).sort();
+
+    if (regions.length === 0) {
+        container.innerHTML = '<div class="empty">暂无数据</div>';
+        return;
+    }
+
+    container.innerHTML = regions.map(region => {
+        const xqList = allData[region];
+        const scored = xqList.filter(x => x.score !== '' && x.score !== undefined && x.score !== null);
+        const avg = scored.length > 0 ? (scored.reduce((s, x) => s + Number(x.score), 0) / scored.length).toFixed(1) : '--';
+        const totalShops = xqList.reduce((s, x) => s + (x.shopCount || 0), 0);
+
+        const filteredList = currentFilter.region === '' || currentFilter.region === region
+            ? (currentFilter.score === 'scored' ? scored
+               : currentFilter.score === 'unscored' ? xqList.filter(x => x.score === '' || x.score === undefined || x.score === null)
+               : xqList)
+            : [];
+
+        const displayList = currentFilter.region && currentFilter.region !== region ? [] : filteredList;
+
+        return `
+            <div class="region-card" id="region-${region}">
+                <div class="region-header" onclick="toggleRegion('${region}')">
+                    <div>
+                        <div class="region-name">
+                            <span>📁</span>
+                            ${region}
+                            <span class="region-meta">${xqList.length}人 · ${totalShops}店</span>
+                        </div>
+                    </div>
+                    <div class="region-stats">
+                        <span class="tag tag-scored">✅ 已评 ${scored.length}</span>
+                        <span class="tag tag-unscored">⏳ 未评 ${xqList.length - scored.length}</span>
+                        <span style="font-weight:700; color: ${avg === '--' ? 'var(--text2)' : Number(avg) >= 80 ? 'var(--success)' : Number(avg) >= 60 ? 'var(--warning)' : 'var(--danger)'}">均分 ${avg}</span>
+                        <span id="arrow-${region}" style="font-size:12px;">▼</span>
+                    </div>
+                </div>
+                <div class="region-body" id="body-${region}">
+                    ${displayList.length > 0 ? renderTable(displayList) : '<div class="empty" style="padding:12px;">无匹配数据</div>'}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderTable(list) {
+    const dayNames = ['', '一', '二', '三', '四', '五'];
+    return `
+        <table>
+            <thead>
+                <tr>
+                    <th>小区经理</th>
+                    <th>城市</th>
+                    <th>门店数</th>
+                    <th>培训日</th>
+                    <th>抽查</th>
+                    <th>分数</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${list.map(xq => `
+                    <tr>
+                        <td style="font-weight:500;">${xq.name}</td>
+                        <td>${xq.city || '-'}</td>
+                        <td>${xq.shopCount || 0}</td>
+                        <td>${[1,2,3,4,5].map(d => `<span class="day-dot ${(xq.days || []).includes(d) ? 'day-active' : 'day-inactive'}">${d}</span>`).join('')}</td>
+                        <td>${xq.spotCheck ? '<span class="check-icon">✓</span>' : '<span class="uncheck-icon">✗</span>'}</td>
+                        <td><span class="score-badge ${scoreClass(xq.score)}">${xq.score !== '' && xq.score !== undefined && xq.score !== null ? xq.score : '--'}</span></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function toggleRegion(region) {
+    const body = document.getElementById(`body-${region}`);
+    const arrow = document.getElementById(`arrow-${region}`);
+    if (body.classList.contains('collapsed')) {
+        body.classList.remove('collapsed');
+        arrow.textContent = '▼';
+    } else {
+        body.classList.add('collapsed');
+        arrow.textContent = '▶';
+    }
+}
+
+// ==================== INIT ====================
+loadData();
+// Auto refresh every 5 minutes
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+
+</body>
+</html>
