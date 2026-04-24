@@ -346,6 +346,7 @@ function renderTable(list) {
                     <th>培训日</th>
                     <th>抽查</th>
                     <th>分数</th>
+                    <th>会议举办城市</th>
                 </tr>
             </thead>
             <tbody>
@@ -357,6 +358,7 @@ function renderTable(list) {
                         <td>${[1,2,3,4,5].map(d => `<span class="day-dot ${(xq.days || []).includes(d) ? 'day-active' : 'day-inactive'}">${d}</span>`).join('')}</td>
                         <td>${xq.spotCheck ? '<span class="check-icon">✓</span>' : '<span class="uncheck-icon">✗</span>'}</td>
                         <td><span class="score-badge ${scoreClass(xq.score)}">${xq.score !== '' && xq.score !== undefined && xq.score !== null ? xq.score : '--'}</span></td>
+                        <td>${xq.meetingCity || '-'}</td>
                     </tr>
                 `).join('')}
             </tbody>
