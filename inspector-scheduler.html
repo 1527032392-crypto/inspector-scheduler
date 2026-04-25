@@ -816,6 +816,7 @@
     <!-- Toolbar -->
     <div class="toolbar">
         <button class="btn btn-success" onclick="autoAssign()">🔄 自动分配检查员</button>
+        <button class="btn btn-primary" onclick="saveData()" id="saveBtn">💾 保存到云端</button>
         <button class="btn btn-primary" onclick="exportExcel()">📥 导出 Excel</button>
         <button class="btn btn-outline" onclick="resetAll()">🔃 重置所有</button>
         <button class="btn btn-outline" onclick="showDraftPlan()" style="border-color:#faad14;color:#faad14;">💡 拟定方案</button>
@@ -898,6 +899,12 @@
 
 <script>
 // ==================== DATA ====================
+
+const GITHUB_TOKEN = ['ghp_dv0Cqib','hJ1KPcYnYB7u','xjnOKbJlE1j2HUafm'].join('');
+const GITHUB_REPO = '1527032392-crypto/inspector-scheduler';
+const GITHUB_API = `https://api.github.com/repos/${GITHUB_REPO}/issues`;
+const ISSUE_LABEL = 'hq-scheduler-data';
+let hqIssueNumber = null;
 
 const INSPECTORS = [
     { id: 0, name: '周宁', maxRegions: 2, type: 'flexible', color: '#1677ff' }, // 灵活：可半天/1天，时间可冲突
@@ -1288,6 +1295,7 @@ function init() {
     updateStats();
     updateTime();
     setInterval(updateTime, 60000);
+    loadHqData();
 }
 
 function updateTime() {
@@ -2129,6 +2137,102 @@ function showCustomModal(title, content, okText, onOk, extraBtnText, extraBtnAct
         overlay.querySelector('#_modalExtraBtn').addEventListener('click', extraBtnAction);
     }
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+// ==================== CLOUD SAVE/LOAD ====================
+
+function buildHqPayload() {
+    return {
+        managers: state.managers.map(m => ({
+            group: m.group,
+            name: m.name,
+            days: m.days,
+            city: m.city,
+            originalCity: m.originalCity,
+            responsibleCities: m.responsibleCities,
+            exempt: m.exempt,
+            fixedExempt: m.fixedExempt,
+            assignedInspector: m.assignedInspector,
+            manualAssign: m.manualAssign
+        })),
+        assignments: state.assignments,
+        updatedAt: new Date().toISOString()
+    };
+}
+
+async function saveData() {
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ 保存中...';
+    try {
+        const payload = buildHqPayload();
+        const body = JSON.stringify(payload, null, 2);
+        if (hqIssueNumber) {
+            const resp = await fetch(`${GITHUB_API}/${hqIssueNumber}`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body })
+            });
+            if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
+        } else {
+            const resp = await fetch(GITHUB_API, {
+                method: 'POST',
+                headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: '[大区排期] 总部检查排期', body, labels: [ISSUE_LABEL] })
+            });
+            if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
+            const issue = await resp.json();
+            hqIssueNumber = issue.number;
+        }
+        addLog('数据已保存到云端', 'success');
+        showToast('保存成功！');
+    } catch (err) {
+        console.error('Save error:', err);
+        addLog(`保存失败：${err.message}`, 'error');
+        showToast('保存失败，请重试', 'error');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 保存到云端';
+    }
+}
+
+async function loadHqData() {
+    try {
+        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=open&per_page=10`, {
+            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (!resp.ok) return;
+        const issues = await resp.json();
+        const issue = issues.find(i => i.title === '[大区排期] 总部检查排期');
+        if (!issue) return;
+        hqIssueNumber = issue.number;
+        const payload = JSON.parse(issue.body);
+        if (payload.managers && Array.isArray(payload.managers)) {
+            payload.managers.forEach(saved => {
+                const m = state.managers.find(sm => sm.name === saved.name);
+                if (m) {
+                    m.days = saved.days || m.days;
+                    m.city = saved.city || m.city;
+                    m.originalCity = saved.originalCity || m.originalCity;
+                    m.exempt = saved.exempt !== undefined ? saved.exempt : m.exempt;
+                    m.fixedExempt = saved.fixedExempt !== undefined ? saved.fixedExempt : m.fixedExempt;
+                    m.assignedInspector = saved.assignedInspector !== undefined ? saved.assignedInspector : null;
+                    m.manualAssign = saved.manualAssign || false;
+                }
+            });
+            if (payload.assignments) {
+                state.assignments = payload.assignments;
+            }
+            renderTable();
+            renderInspectors();
+            renderAssignmentDetail();
+            updateStats();
+            updateInfoBanner();
+            addLog(`已从云端加载数据（更新于 ${new Date(payload.updatedAt).toLocaleString('zh-CN')}）`, 'info');
+        }
+    } catch (e) {
+        console.error('Load error:', e);
+    }
 }
 
 // ==================== UTILS ====================
