@@ -902,7 +902,7 @@
 <div class="header">
     <div>
         <h1>📋 大区培训检查排期系统</h1>
-        <div class="subtitle">检查员自动分配 · 免检动态管理 · 一键导出</div>
+        <div class="subtitle">监察员自动分配 · 免检动态管理 · 一键导出</div>
     </div>
     <div style="font-size:12px; opacity:0.6;" id="currentTime"></div>
 </div>
@@ -911,7 +911,7 @@
 <div class="calendar-modal" id="calendarModal">
     <div class="calendar-panel">
         <div class="calendar-header">
-            <h2>📅 排期月历 — 大区培训检查</h2>
+            <h2>📅 监察员排期月历 — 大区培训检查</h2>
             <div class="btn-row">
                 <button onclick="exportCalendarImage()">📸 导出图片</button>
                 <button onclick="exportCalendarExcel()">📊 导出Excel</button>
@@ -942,7 +942,7 @@
             <div class="value" id="statExemptRemain" style="color:#8c6900;">5</div>
         </div>
         <div class="stat-card">
-            <div class="label">未分配检查员</div>
+            <div class="label">未分配监察员</div>
             <div class="value red" id="statUnassigned">22</div>
         </div>
     </div>
@@ -958,12 +958,12 @@
 
     <!-- Info Banner -->
     <div class="info-banner" id="infoBanner">
-        ⚡ 点击表格中的「免检」列勾选/取消免检，然后点击「自动分配检查员」生成方案
+        ⚡ 点击表格中的「免检」列勾选/取消免检，然后点击「自动分配监察员」生成方案
     </div>
 
     <!-- Toolbar -->
     <div class="toolbar">
-        <button class="btn btn-success" onclick="autoAssign()">🔄 自动分配检查员</button>
+        <button class="btn btn-success" onclick="autoAssign()">🔄 自动分配监察员</button>
         <button class="btn btn-primary" onclick="saveData()" id="saveBtn">💾 保存到云端</button>
         <button class="btn btn-primary" onclick="exportExcel()">📥 导出 Excel</button>
         <button class="btn btn-outline" onclick="openCalendar()">📅 月历视图</button>
@@ -998,7 +998,7 @@
                             <th class="schedule-cell">周五<br><span style="font-weight:400;font-size:11px;color:#999">5/15</span></th>
                             <th>会议举办城市</th>
                             <th class="check-cell">免检</th>
-                            <th>检查员</th>
+                            <th>监察员</th>
                         </tr>
                     </thead>
                     <tbody id="scheduleBody">
@@ -1011,7 +1011,7 @@
         <div>
             <div class="card">
                 <div class="card-header">
-                    <span>👤 检查员状态</span>
+                    <span>👤 监察员状态</span>
                 </div>
                 <div class="inspector-list" id="inspectorList">
                 </div>
@@ -1024,7 +1024,7 @@
                 <div id="assignmentDetail">
                     <div class="no-assignment">
                         <div class="icon">📋</div>
-                        <div>点击「自动分配检查员」查看分配方案</div>
+                        <div>点击「自动分配监察员」查看分配方案</div>
                     </div>
                 </div>
             </div>
@@ -1494,7 +1494,7 @@ function renderTable() {
             const manualClass = m.manualAssign ? 'manual' : '';
             html += `<td style="position:relative;"><span class="inspector-tag assigned ${manualClass}" style="background:${ins.color}15; color:${ins.color};" onclick="showInspectorDropdown(${m.id}, this)">${ins.name}</span></td>`;
         } else {
-            html += `<td style="position:relative;"><span class="inspector-tag selectable" onclick="showInspectorDropdown(${m.id}, this)">+ 分配检查员</span></td>`;
+            html += `<td style="position:relative;"><span class="inspector-tag selectable" onclick="showInspectorDropdown(${m.id}, this)">+ 分配监察员</span></td>`;
         }
 
         // Inspector column
@@ -1576,16 +1576,16 @@ function updateInfoBanner() {
 
     if (assigned === needCheck && needCheck > 0) {
         banner.className = 'info-banner ok';
-        banner.innerHTML = `✅ 所有 ${needCheck} 个待检大区已全部分配检查员`;
+        banner.innerHTML = `✅ 所有 ${needCheck} 个待检大区已全部分配监察员`;
     } else if (assigned > 0) {
         banner.className = 'info-banner warn';
-        banner.innerHTML = `⚠️ 已分配 ${assigned}/${needCheck}，还有 ${needCheck - assigned} 个大区未分配检查员`;
+        banner.innerHTML = `⚠️ 已分配 ${assigned}/${needCheck}，还有 ${needCheck - assigned} 个大区未分配监察员`;
     } else if (remain <= 0) {
         banner.className = 'info-banner warn';
         banner.innerHTML = `⚠️ 免检名额已满（${exempt}/${MAX_EXEMPT}），无法继续添加`;
     } else {
         banner.className = 'info-banner';
-        banner.innerHTML = `⚡ 点击表格中的「免检」列勾选/取消免检，然后点击「自动分配检查员」生成方案（剩余免检名额：${remain}）`;
+        banner.innerHTML = `⚡ 点击表格中的「免检」列勾选/取消免检，然后点击「自动分配监察员」生成方案（剩余免检名额：${remain}）`;
     }
 }
 
@@ -1852,7 +1852,7 @@ function toggleExempt(managerId, checked) {
         m.assignedInspector = null;
         addLog(`取消 ${m.name} 的检查安排（已设为免检）`, 'warn');
     } else {
-        addLog(`${m.name} 取消免检，需要安排检查员`, 'warn');
+        addLog(`${m.name} 取消免检，需要安排监察员`, 'warn');
     }
 
     renderTable();
@@ -1863,7 +1863,7 @@ function toggleExempt(managerId, checked) {
 }
 
 function autoAssign() {
-    addLog('开始自动分配检查员...（手动分配的不会被覆盖）', '');
+    addLog('开始自动分配监察员...（手动分配的不会被覆盖）', '');
 
     // Preserve manual assignments, clear auto ones
     const manualAssignments = state.assignments.filter(a => {
@@ -1962,7 +1962,7 @@ function autoAssign() {
             const available = getAvailableInspectors(manager, usage, slotDays);
 
             if (available.length === 0) {
-                addLog(`❌ 无法为 ${manager.name}（${manager.city}）分配检查员！时间冲突或人手不足`, 'error');
+                addLog(`❌ 无法为 ${manager.name}（${manager.city}）分配监察员！时间冲突或人手不足`, 'error');
                 remaining.shift();
                 continue;
             }
@@ -2017,7 +2017,7 @@ function autoAssign() {
             }
 
             if (!assigned) {
-                addLog(`❌ 无法为 ${manager.name}（${manager.city}）分配检查员！所有候选人时间冲突`, 'error');
+                addLog(`❌ 无法为 ${manager.name}（${manager.city}）分配监察员！所有候选人时间冲突`, 'error');
                 remaining.shift();
             }
         }
@@ -2033,7 +2033,7 @@ function autoAssign() {
     const fail = needCheck.length - success;
     if (fail > 0) {
         showToast(`分配完成：${success} 成功，${fail} 失败`, 'error');
-        addLog(`分配结果：${success} 成功，${fail} 失败。建议增加检查员或调整免检`, 'error');
+        addLog(`分配结果：${success} 成功，${fail} 失败。建议增加监察员或调整免检`, 'error');
     } else {
         showToast(`全部 ${success} 个大区分配成功！`, 'success');
         addLog(`🎉 全部 ${success} 个大区分配成功！`, 'success');
@@ -2062,7 +2062,7 @@ function getAvailableInspectors(manager, usage, slotDays) {
 function renderAssignmentDetail() {
     const detail = document.getElementById('assignmentDetail');
     if (state.assignments.length === 0) {
-        detail.innerHTML = `<div class="no-assignment"><div class="icon">📋</div><div>点击「自动分配检查员」查看分配方案</div></div>`;
+        detail.innerHTML = `<div class="no-assignment"><div class="icon">📋</div><div>点击「自动分配监察员」查看分配方案</div></div>`;
         return;
     }
 
@@ -2109,7 +2109,7 @@ function exportExcel() {
     const wb = XLSX.utils.book_new();
 
     // Build data
-    const headers = ['组别', '大区经理', '周一<br><span style="font-weight:400;font-size:11px;color:#999">5月11日</span>', '周二<br><span style="font-weight:400;font-size:11px;color:#999">5月12日</span>', '周三<br><span style="font-weight:400;font-size:11px;color:#999">5月13日</span>', '周四<br><span style="font-weight:400;font-size:11px;color:#999">5月14日</span>', '周五<br><span style="font-weight:400;font-size:11px;color:#999">5月15日</span>', '会议举办城市', '负责城市', '免检', '检查员'];
+    const headers = ['组别', '大区经理', '周一<br><span style="font-weight:400;font-size:11px;color:#999">5月11日</span>', '周二<br><span style="font-weight:400;font-size:11px;color:#999">5月12日</span>', '周三<br><span style="font-weight:400;font-size:11px;color:#999">5月13日</span>', '周四<br><span style="font-weight:400;font-size:11px;color:#999">5月14日</span>', '周五<br><span style="font-weight:400;font-size:11px;color:#999">5月15日</span>', '会议举办城市', '负责城市', '免检', '监察员'];
     const rows = [headers];
 
     state.managers.forEach(m => {
@@ -2141,7 +2141,7 @@ function exportExcel() {
     XLSX.utils.book_append_sheet(wb, ws, '大区培训检查排期');
 
     // Add inspector summary sheet
-    const insHeaders = ['检查员', '可检查大区数', '已分配', '状态'];
+    const insHeaders = ['监察员', '可检查大区数', '已分配', '状态'];
     const insRows = [insHeaders];
     const counts = {};
     INSPECTORS.forEach(i => counts[i.id] = 0);
@@ -2158,7 +2158,7 @@ function exportExcel() {
 
     const ws2 = XLSX.utils.aoa_to_sheet(insRows);
     ws2['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 8 }, { wch: 8 }];
-    XLSX.utils.book_append_sheet(wb, ws2, '检查员分配汇总');
+    XLSX.utils.book_append_sheet(wb, ws2, '监察员分配汇总');
 
     const filename = `大区培训检查排期_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`;
     XLSX.writeFile(wb, filename);
@@ -2211,7 +2211,7 @@ function showDraftPlan() {
 
     let html = '<div style="max-height:60vh;overflow-y:auto;">';
     html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
-    html += '<tr style="background:#fafafa;"><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">大区经理</th><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">城市</th><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">检查员</th></tr>';
+    html += '<tr style="background:#fafafa;"><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">大区经理</th><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">城市</th><th style="padding:8px 12px;text-align:left;border-bottom:2px solid #e8e8e8;">监察员</th></tr>';
     DRAFT_PLAN.forEach(d => {
         const mgr = state.managers.find(m => m.name === d.manager);
         const city = mgr ? mgr.city : '-';
@@ -2231,7 +2231,7 @@ function applyDraftPlan() {
         m.manualAssign = false;
     });
 
-    // 2. 方案中的14人：取消免检，分配检查员
+    // 2. 方案中的14人：取消免检，分配监察员
     const planNames = DRAFT_PLAN.map(d => d.manager);
     state.managers.forEach(m => {
         if (planNames.includes(m.name)) {
@@ -2470,12 +2470,15 @@ function renderCalendar() {
         html += `<div class="cal-date${isWeekend ? ' weekend' : ''}">${d}</div>`;
 
         if (dayIndex !== -1) {
-            // 有培训安排的一天
+            // 只显示已分配监察员的排期
             const dayNum = dayIndex + 1;
-            const managers = state.managers.filter(m => !m.exempt && m.days.includes(dayNum));
-            managers.forEach(m => {
-                const inspector = m.assignedInspector || '待分配';
-                html += `<div class="cal-item">
+            state.assignments.forEach(a => {
+                const m = state.managers[a.managerId];
+                if (!m || m.exempt || !m.days.includes(dayNum)) return;
+                const ins = INSPECTORS[a.inspectorId];
+                if (!ins) return;
+                html += `<div class="cal-item" style="border-left-color:${ins.color};">
+                    <div class="cal-inspector" style="color:${ins.color};">🔍 ${ins.name}</div>
                     <div class="cal-target">${m.name}（${m.responsibleCities}）</div>
                     <div class="cal-city">📍${m.city}</div>
                 </div>`;
@@ -2498,18 +2501,21 @@ function renderCalendar() {
 
 function exportCalendarExcel() {
     const wb = XLSX.utils.book_new();
-    const headers = ['日期', '星期', '大区经理', '会议城市', '负责城市'];
+    const headers = ['日期', '星期', '监察员', '大区经理', '会议城市', '负责城市'];
     const rows = [headers];
 
     for (let i = 0; i < CAL_DAY_DATES.length; i++) {
         const dayNum = i + 1;
         const date = CAL_DAY_DATES[i];
         const dayName = DAY_NAMES[i];
-        const managers = state.managers.filter(m => !m.exempt && m.days.includes(dayNum));
-        if (managers.length === 0) continue;
-        managers.forEach((m, idx) => {
+        state.assignments.forEach(a => {
+            const m = state.managers[a.managerId];
+            if (!m || m.exempt || !m.days.includes(dayNum)) return;
+            const ins = INSPECTORS[a.inspectorId];
+            if (!ins) return;
             rows.push([
                 `5月${date}日`, dayName,
+                ins.name,
                 m.name,
                 m.city,
                 m.responsibleCities
@@ -2518,9 +2524,9 @@ function exportCalendarExcel() {
     }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:10},{wch:8},{wch:12},{wch:10},{wch:30}];
-    XLSX.utils.book_append_sheet(wb, ws, '排期月历');
-    XLSX.writeFile(wb, '大区培训检查月历.xlsx');
+    ws['!cols'] = [{wch:10},{wch:8},{wch:10},{wch:12},{wch:12},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, ws, '监察员排期月历');
+    XLSX.writeFile(wb, '监察员排期月历.xlsx');
 }
 
 function exportCalendarImage() {
@@ -2549,7 +2555,7 @@ function exportCalendarImage() {
                 .cal-target { color: #333; }
                 .cal-city { color: #999; font-size: 10px; }
             </style></head><body>
-            <h2>📅 排期月历 — 大区培训检查</h2>${panel.innerHTML}
+            <h2>📅 监察员排期月历 — 大区培训检查</h2>${panel.innerHTML}
             <script>setTimeout(()=>{window.print();},500);<\/script></body></html>`);
         win.document.close();
     }
