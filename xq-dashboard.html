@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>培训抽查汇总看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -158,6 +159,47 @@
             th, td { padding: 6px 6px; font-size: 12px; }
             .inspector-select { min-width: 60px; font-size: 11px; }
         }
+
+        /* 月历弹窗样式 */
+        .calendar-modal {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 10000;
+            justify-content: center; align-items: flex-start; padding: 40px 20px; overflow-y: auto;
+        }
+        .calendar-modal.show { display: flex; }
+        .calendar-panel {
+            background: #fff; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+            width: 100%; max-width: 1100px; overflow: hidden;
+        }
+        .calendar-hd {
+            background: linear-gradient(135deg, #1e40af, #3b82f6); color: #fff;
+            padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .calendar-hd h2 { font-size: 18px; font-weight: 600; }
+        .calendar-hd .btn-row { display: flex; gap: 8px; }
+        .calendar-hd .btn-row button {
+            padding: 6px 14px; border: 1px solid rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.15); color: #fff; border-radius: 6px;
+            cursor: pointer; font-size: 13px;
+        }
+        .calendar-hd .btn-row button:hover { background: rgba(255,255,255,0.3); }
+        .calendar-bd { padding: 20px 24px; }
+        .calendar-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+            background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;
+        }
+        .cal-hd-cell { background: #f9fafb; padding: 8px; text-align: center; font-size: 12px; font-weight: 600; color: #6b7280; }
+        .cal-cell { background: #fff; padding: 8px; min-height: 100px; font-size: 12px; }
+        .cal-cell.empty { background: #fafafa; min-height: 40px; }
+        .cal-date { font-weight: 700; font-size: 14px; color: #1f2937; margin-bottom: 6px; }
+        .cal-date.weekend { color: var(--danger); }
+        .cal-item {
+            background: #ecfdf5; border-left: 3px solid var(--success);
+            padding: 3px 6px; margin-bottom: 4px; border-radius: 0 4px 4px 0; font-size: 11px; line-height: 1.4;
+        }
+        .cal-item .ci-inspector { color: #059669; font-weight: 600; }
+        .cal-item .ci-target { color: #333; }
+        .cal-item .ci-city { color: #999; font-size: 10px; }
     </style>
 </head>
 <body>
@@ -168,6 +210,22 @@
     <div class="refresh-info">
         <span id="lastUpdate">加载中...</span>
         <button class="refresh-btn" onclick="loadData()">🔄 刷新</button>
+        <button class="refresh-btn" onclick="openCalModal()">📅 月历</button>
+    </div>
+</div>
+
+<!-- 月历弹窗 -->
+<div class="calendar-modal" id="calModal">
+    <div class="calendar-panel">
+        <div class="calendar-hd">
+            <h2>📅 检查排期月历 — 大区培训检查</h2>
+            <div class="btn-row">
+                <button onclick="exportCalExcel()">📊 导出Excel</button>
+                <button onclick="exportCalPrint()">🖨️ 打印</button>
+                <button onclick="closeCalModal()">✕ 关闭</button>
+            </div>
+        </div>
+        <div class="calendar-bd" id="calBody"></div>
     </div>
 </div>
 
@@ -698,6 +756,142 @@ loadData().then(() => {
 });
 // Auto refresh every 5 minutes
 setInterval(loadData, 5 * 60 * 1000);
+
+// ==================== 月历功能 ====================
+const CAL_YEAR = 2025, CAL_MONTH = 4; // 5月
+const CAL_DAY_DATES = [11,12,13,14,15]; // 周一~周五
+
+function openCalModal() {
+    document.getElementById('calModal').classList.add('show');
+    renderCalMonth();
+}
+function closeCalModal() {
+    document.getElementById('calModal').classList.remove('show');
+}
+
+function renderCalMonth() {
+    const container = document.getElementById('calBody');
+    const firstDay = new Date(CAL_YEAR, CAL_MONTH, 1).getDay();
+    const daysInMonth = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
+    const dayLabels = ['日','一','二','三','四','五','六'];
+
+    let html = '<div class="calendar-grid">';
+    dayLabels.forEach(d => { html += `<div class="cal-hd-cell">${d}</div>`; });
+
+    for (let i = 0; i < firstDay; i++) html += '<div class="cal-cell empty"></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dow = new Date(CAL_YEAR, CAL_MONTH, d).getDay();
+        const isWknd = dow === 0 || dow === 6;
+        const dayIdx = CAL_DAY_DATES.indexOf(d);
+        html += `<div class="cal-cell">`;
+        html += `<div class="cal-date${isWknd ? ' weekend' : ''}">${d}</div>`;
+
+        if (dayIdx !== -1) {
+            const dayNum = dayIdx + 1;
+            // 汇总这天有哪些检查人分配
+            const items = [];
+            for (const [key, inspector] of Object.entries(inspectorAssignments)) {
+                if (!inspector) continue;
+                const lastUs = key.lastIndexOf('_');
+                if (lastUs === -1) continue;
+                const region = key.substring(0, lastUs);
+                const xqName = key.substring(lastUs + 1);
+                const xqDays = getXqDays(region, xqName);
+                if (xqDays.includes(dayNum)) {
+                    const xqData = (allData[region] || []).find(x => x.name === xqName);
+                    const city = xqData ? xqData.city : '';
+                    items.push({ inspector, region, xqName, city });
+                }
+            }
+            if (items.length === 0) {
+                // 也显示当天有培训但没分配检查人的
+                for (const [region, xqList] of Object.entries(allData)) {
+                    xqList.forEach(xq => {
+                        if ((xq.days || []).includes(dayNum)) {
+                            html += `<div class="cal-item" style="border-left-color:#faad14;background:#fffbe6;">
+                                <div class="ci-target" style="color:#8c6900;">${xq.name}（${region}）</div>
+                                <div class="ci-city">${xq.city || ''} · 待分配检查人</div>
+                            </div>`;
+                        }
+                    });
+                }
+            } else {
+                items.forEach(item => {
+                    html += `<div class="cal-item">
+                        <div class="ci-inspector">🔍 ${item.inspector}</div>
+                        <div class="ci-target">${item.xqName}（${item.region}）</div>
+                        <div class="ci-city">📍${item.city}</div>
+                    </div>`;
+                });
+            }
+        }
+
+        html += '</div>';
+    }
+
+    const total = firstDay + daysInMonth;
+    const rem = total % 7 === 0 ? 0 : 7 - (total % 7);
+    for (let i = 0; i < rem; i++) html += '<div class="cal-cell empty"></div>';
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function exportCalExcel() {
+    if (typeof XLSX === 'undefined') { alert('Excel库加载中，请稍后再试'); return; }
+    const wb = XLSX.utils.book_new();
+    const headers = ['日期', '星期', '检查人', '大区', '小区经理', '城市'];
+    const rows = [headers];
+    const dayNames = ['','周一','周二','周三','周四','周五'];
+
+    for (let i = 0; i < CAL_DAY_DATES.length; i++) {
+        const dayNum = i + 1;
+        const date = CAL_DAY_DATES[i];
+        const items = [];
+        for (const [key, inspector] of Object.entries(inspectorAssignments)) {
+            if (!inspector) continue;
+            const lastUs = key.lastIndexOf('_');
+            if (lastUs === -1) continue;
+            const region = key.substring(0, lastUs);
+            const xqName = key.substring(lastUs + 1);
+            const xqDays = getXqDays(region, xqName);
+            if (xqDays.includes(dayNum)) {
+                const xqData = (allData[region] || []).find(x => x.name === xqName);
+                items.push({ inspector, region, xqName, city: xqData ? xqData.city : '' });
+            }
+        }
+        items.forEach(item => {
+            rows.push([`5月${date}日`, dayNames[dayNum], item.inspector, item.region, item.xqName, item.city]);
+        });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:10},{wch:8},{wch:10},{wch:12},{wch:10},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, '检查排期月历');
+    XLSX.writeFile(wb, '检查排期月历.xlsx');
+}
+
+function exportCalPrint() {
+    const panel = document.getElementById('calBody');
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>检查排期月历</title>
+        <style>
+            body { font-family: -apple-system, sans-serif; padding: 20px; }
+            .calendar-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 1px; background: #e5e7eb; border: 1px solid #e5e7eb; }
+            .cal-hd-cell { background: #f9fafb; padding: 8px; text-align: center; font-size: 12px; font-weight: 600; color: #6b7280; }
+            .cal-cell { background: #fff; padding: 8px; min-height: 100px; font-size: 12px; page-break-inside: avoid; }
+            .cal-cell.empty { background: #fafafa; min-height: 40px; }
+            .cal-date { font-weight: 700; font-size: 14px; color: #1f2937; margin-bottom: 6px; }
+            .cal-item { border-left: 3px solid #059669; padding: 3px 6px; margin-bottom: 4px; border-radius: 0 4px 4px 0; font-size: 11px; background: #ecfdf5; }
+            .cal-item .ci-inspector { color: #059669; font-weight: 600; }
+            .cal-item .ci-target { color: #333; }
+            .cal-item .ci-city { color: #999; font-size: 10px; }
+        </style></head><body>
+        <h2>📅 检查排期月历 — 大区培训检查</h2>${panel.innerHTML}
+        <script>setTimeout(()=>{window.print();},500);<\/script></body></html>`);
+    win.document.close();
+}
 </script>
 
 </body>
