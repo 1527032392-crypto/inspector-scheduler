@@ -537,12 +537,11 @@ function getXqDays(region, xqName) {
     return xq ? (xq.days || []) : [];
 }
 
-// 检查某检查人在某天是否已被占用
+// 检查某检查人在某天是否已被占用（同一天只能检查一个小区经理）
 function isInspectorBusy(inspectorName, day, excludeKey) {
     for (const [key, assigned] of Object.entries(inspectorAssignments)) {
         if (assigned !== inspectorName) continue;
-        if (key === excludeKey) continue; // 排除当前行
-        // 解析 key: "regionName_xqName"
+        if (key === excludeKey) continue;
         const lastUnderscore = key.lastIndexOf('_');
         if (lastUnderscore === -1) continue;
         const region = key.substring(0, lastUnderscore);
@@ -553,7 +552,7 @@ function isInspectorBusy(inspectorName, day, excludeKey) {
     return false;
 }
 
-// 获取检查人在某天已分配的大区（用于提示）
+// 获取检查人在某天已分配的小区经理（用于提示）
 function getInspectorDayAssignment(inspectorName, day) {
     const results = [];
     for (const [key, assigned] of Object.entries(inspectorAssignments)) {
@@ -605,7 +604,7 @@ function highlightConflicts() {
         }
         if (hasConflict) {
             sel.classList.add('conflict');
-            sel.title = `⚠️ 时间冲突：\n${conflictInfo.join('\n')}`;
+            sel.title = `⚠️ 时间冲突（同一天不能检查两个小区）：\n${conflictInfo.join('\n')}`;
         } else {
             sel.classList.remove('conflict');
             sel.title = '';
