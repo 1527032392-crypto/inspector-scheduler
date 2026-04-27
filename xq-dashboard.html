@@ -572,40 +572,78 @@ function onInspectorChange(selectEl, region, xqName) {
     const key = `${region}_${xqName}`;
     const value = selectEl.value;
     if (value) {
+        // 检查冲突：该检查人是否在同一天已被分配给其他小区经理
+        const xqDays = getXqDays(region, xqName);
+        for (const day of xqDays) {
+            const conflicts = getInspectorDayAssignment(value, day, key);
+            if (conflicts.length > 0) {
+                alert(`⚠️ 冲突！${value} 在第${day}天已分配给：${conflicts.join('、')}\n同一天只能检查一个小区经理。`);
+                selectEl.value = inspectorAssignments[key] || '';
+                return;
+            }
+        }
         inspectorAssignments[key] = value;
     } else {
         delete inspectorAssignments[key];
     }
     saveInspectorData();
-    // 检查冲突并高亮
-    highlightConflicts();
+    // 重新渲染所有下拉选项，更新禁用状态
+    refreshAllInspectorSelects();
 }
 
-function highlightConflicts() {
-    // 遍历所有 select，检查冲突
+function refreshAllInspectorSelects() {
+    // 重新渲染每个 select 的选项，正确禁用已占用的检查人
     document.querySelectorAll('.inspector-select').forEach(sel => {
         const region = sel.dataset.region;
         const xqName = sel.dataset.xqname;
+        if (!region || !xqName) return;
         const key = `${region}_${xqName}`;
-        const value = inspectorAssignments[key];
-        if (!value) {
-            sel.classList.remove('conflict');
-            sel.title = '';
-            return;
-        }
-        const days = getXqDays(region, xqName);
-        let hasConflict = false;
-        let conflictInfo = [];
-        for (const day of days) {
-            const busy = getInspectorDayAssignment(value, day, key);
-            if (busy.length > 0) {
-                hasConflict = true;
-                conflictInfo.push(`第${day}天：${busy.join('、')}`);
+        const currentValue = inspectorAssignments[key] || '';
+        const xqDays = getXqDays(region, xqName);
+
+        // 清空并重建选项
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">--选择--</option>';
+
+        for (const name of inspectorList) {
+            let allDaysBusy = xqDays.length > 0;
+            for (const day of xqDays) {
+                if (!isInspectorBusy(name, day, key)) {
+                    allDaysBusy = false;
+                    break;
+                }
             }
+
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = allDaysBusy ? `${name}（已占用）` : name;
+            if (allDaysBusy && name !== currentValue) {
+                opt.disabled = true;
+            }
+            if (name === currentValue) {
+                opt.selected = true;
+            }
+            sel.appendChild(opt);
         }
-        if (hasConflict) {
-            sel.classList.add('conflict');
-            sel.title = `⚠️ 时间冲突（同一天不能检查两个小区）：\n${conflictInfo.join('\n')}`;
+
+        // 如果当前值有冲突，标红
+        if (currentValue) {
+            let hasConflict = false;
+            let conflictInfo = [];
+            for (const day of xqDays) {
+                const conflicts = getInspectorDayAssignment(currentValue, day, key);
+                if (conflicts.length > 0) {
+                    hasConflict = true;
+                    conflictInfo.push(`第${day}天：${conflicts.join('、')}`);
+                }
+            }
+            if (hasConflict) {
+                sel.classList.add('conflict');
+                sel.title = `⚠️ 时间冲突：\n${conflictInfo.join('\n')}`;
+            } else {
+                sel.classList.remove('conflict');
+                sel.title = '';
+            }
         } else {
             sel.classList.remove('conflict');
             sel.title = '';
@@ -656,7 +694,7 @@ function buildInspectorOptions(region, xqName) {
 loadInspectorData();
 renderInspectorTags();
 loadData().then(() => {
-    highlightConflicts();
+    refreshAllInspectorSelects();
 });
 // Auto refresh every 5 minutes
 setInterval(loadData, 5 * 60 * 1000);
