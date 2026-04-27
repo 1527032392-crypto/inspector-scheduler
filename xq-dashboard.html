@@ -83,7 +83,7 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
 
-        /* 检查人相关样式 */
+        /* 监察员相关样式 */
         .inspector-select {
             padding: 4px 8px;
             border: 1px solid var(--border);
@@ -247,12 +247,12 @@
             <option value="scored">已评分</option>
             <option value="unscored">未评分</option>
         </select>
-        <button class="btn-inspector" onclick="toggleImportArea()">📋 导入检查人名单</button>
-        <button class="btn-inspector secondary" onclick="clearAllInspectors()">🗑️ 清空检查人分配</button>
+        <button class="btn-inspector" onclick="toggleImportArea()">📋 导入监察员名单</button>
+        <button class="btn-inspector secondary" onclick="clearAllInspectors()">🗑️ 清空监察员分配</button>
     </div>
 
     <div class="import-area" id="importArea">
-        <div style="font-weight:600; font-size:13px; margin-bottom:6px;">导入检查人名单</div>
+        <div style="font-weight:600; font-size:13px; margin-bottom:6px;">导入监察员名单</div>
         <textarea id="inspectorInput" placeholder="每行一个检查人姓名，例如：&#10;张三&#10;李四&#10;王五"></textarea>
         <div class="hint">每行一个姓名，导入后会覆盖现有名单。名单保存在本地浏览器中。</div>
         <div class="btn-row">
@@ -487,7 +487,7 @@ function renderTable(list, region) {
                     <th>门店数</th>
                     <th>培训日</th>
                     <th>大区抽检</th>
-                    <th>检查人</th>
+                    <th>监察员</th>
                     <th>会议举办城市</th>
                 </tr>
             </thead>
@@ -582,7 +582,7 @@ function renderInspectorTags() {
         return;
     }
     area.innerHTML = `<div class="inspector-tags">
-        <span style="font-size:12px; color:var(--text2); margin-right:4px;">检查人名单：</span>
+        <span style="font-size:12px; color:var(--text2); margin-right:4px;">监察员名单：</span>
         ${inspectorList.map(name => `<span class="inspector-tag">${name}<span class="remove-tag" onclick="removeInspector('${name}')">×</span></span>`).join('')}
     </div>`;
 }
@@ -789,7 +789,7 @@ function renderCalMonth() {
 
         if (dayIdx !== -1) {
             const dayNum = dayIdx + 1;
-            // 汇总这天有哪些检查人分配
+            // 只显示已分配监察员的条目
             const items = [];
             for (const [key, inspector] of Object.entries(inspectorAssignments)) {
                 if (!inspector) continue;
@@ -804,27 +804,13 @@ function renderCalMonth() {
                     items.push({ inspector, region, xqName, city });
                 }
             }
-            if (items.length === 0) {
-                // 也显示当天有培训但没分配检查人的
-                for (const [region, xqList] of Object.entries(allData)) {
-                    xqList.forEach(xq => {
-                        if ((xq.days || []).includes(dayNum)) {
-                            html += `<div class="cal-item" style="border-left-color:#faad14;background:#fffbe6;">
-                                <div class="ci-target" style="color:#8c6900;">${xq.name}（${region}）</div>
-                                <div class="ci-city">${xq.city || ''} · 待分配检查人</div>
-                            </div>`;
-                        }
-                    });
-                }
-            } else {
-                items.forEach(item => {
-                    html += `<div class="cal-item">
-                        <div class="ci-inspector">🔍 ${item.inspector}</div>
-                        <div class="ci-target">${item.xqName}（${item.region}）</div>
-                        <div class="ci-city">📍${item.city}</div>
-                    </div>`;
-                });
-            }
+            items.forEach(item => {
+                html += `<div class="cal-item">
+                    <div class="ci-inspector">🔍 ${item.inspector}</div>
+                    <div class="ci-target">${item.xqName}（${item.region}）</div>
+                    <div class="ci-city">📍${item.city}</div>
+                </div>`;
+            });
         }
 
         html += '</div>';
@@ -841,7 +827,7 @@ function renderCalMonth() {
 function exportCalExcel() {
     if (typeof XLSX === 'undefined') { alert('Excel库加载中，请稍后再试'); return; }
     const wb = XLSX.utils.book_new();
-    const headers = ['日期', '星期', '检查人', '大区', '小区经理', '城市'];
+    const headers = ['日期', '星期', '监察员', '大区', '小区经理', '城市'];
     const rows = [headers];
     const dayNames = ['','周一','周二','周三','周四','周五'];
 
