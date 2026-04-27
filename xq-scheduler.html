@@ -53,9 +53,7 @@
         tr.exempt td.name-cell { text-decoration: line-through; color: #999; }
         .check-cell { text-align: center; width: 50px; }
         .check-cell input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
-        .score-cell { width: 80px; }
-        .score-input { width: 60px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text); }
-        .score-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(22,119,255,0.2); }
+
         .schedule-cell { text-align: center; font-weight: 600; width: 55px; }
         .schedule-cell.active { background: #e6f4ff; color: var(--primary); border-radius: 4px; padding: 4px 0; }
         .schedule-cell:not(.active) { color: transparent; }
@@ -229,7 +227,6 @@
                         <th class="schedule-cell">周三<br><span style="font-weight:400;font-size:11px;color:#999">5/21</span></th>
                         <th class="schedule-cell">周四<br><span style="font-weight:400;font-size:11px;color:#999">5/22</span></th>
                         <th class="check-cell">抽查</th>
-                        <th class="score-cell">现场评定<br>分数</th>
                         <th>会议举办城市</th>
                         <th>状态</th>
                     </tr>
@@ -16498,7 +16495,6 @@ function buildSavePayload() {
             shopCount: xq.shopCount,
             days: xq.days,
             spotCheck: xq.spotCheck,
-            score: xq.score || '',
             meetingCity: xq.meetingCity || ''
         })),
         updatedAt: new Date().toISOString()
@@ -16592,7 +16588,6 @@ async function loadData() {
                     shops: original ? original.shops : [],
                     days: saved.days || [1, 2],
                     spotCheck: saved.spotCheck || false,
-                    score: saved.score || '',
                     meetingCity: saved.meetingCity || '',
                     expanded: false
                 };
@@ -16712,8 +16707,7 @@ function renderTable() {
             html += `<td class="schedule-cell ${isActive ? 'active' : ''}" style="cursor:pointer; user-select:none;" onclick="toggleDay(${idx},${d})" title="点击切换培训日期">√</td>`;
         }
 
-        html += `<td class="check-cell"><input type="checkbox" ${xq.spotCheck ? 'checked' : ''} onchange="toggleSpotCheck(${idx}, this.checked)"></td>`;
-        html += `<td class="score-cell"><input type="number" class="score-input" min="0" max="100" placeholder="--" value="${xq.score || ''}" onchange="updateScore(${idx}, this.value)"></td>`;
+            html += `<td class="check-cell"><input type="checkbox" ${xq.spotCheck ? 'checked' : ''} onchange="toggleSpotCheck(${idx}, this.checked)"></td>`;
         html += `<td><span class="meeting-city-tag ${xq.meetingCity ? '' : 'empty'}" onclick="showMeetingCitySearch(${idx})" title="点击搜索地址">${xq.meetingCity || '+ 选择地址'}</span></td>`;
 
         if (xq.spotCheck) {
@@ -16844,11 +16838,6 @@ function updateMeetingCity(idx, val) {
     xqState[idx].meetingCity = val.trim();
 }
 
-function updateScore(idx, val) {
-    xqState[idx].score = val ? Number(val) : '';
-    addLog(`${xqState[idx].name} 现场评定分数：${val || '--'}`, 'info');
-    triggerAutoSave();
-}
 
 function triggerAutoSave() {
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
@@ -16892,7 +16881,7 @@ function exportExcel() {
     addLog('开始导出 Excel...', '');
 
     const wb = XLSX.utils.book_new();
-    const headers = ['序号', '小区经理', '主要城市', '管辖门店数', '周日 5/18', '周一 5/19', '周二 5/20', '周三 5/21', '周四 5/22', '培训日期', '是否抽查', '现场评定分数', '状态'];
+    const headers = ['序号', '小区经理', '主要城市', '管辖门店数', '周日 5/18', '周一 5/19', '周二 5/20', '周三 5/21', '周四 5/22', '培训日期', '是否抽查', '会议举办城市', '状态'];
     const rows = [headers];
 
     xqState.forEach((xq, i) => {
@@ -16906,7 +16895,7 @@ function exportExcel() {
             xq.days.includes(5) ? '√' : '',
             dayStr,
             xq.spotCheck ? '✓ 抽查' : '',
-            xq.score || '',
+            xq.meetingCity || '',
             xq.spotCheck ? '抽查' : '免检'
         ]);
     });
@@ -16927,7 +16916,6 @@ function resetAll() {
     xqState.forEach(xq => {
         xq.spotCheck = false;
         xq.days = [1, 2];
-        xq.score = '';
         xq.expanded = false;
     });
     renderTable();
