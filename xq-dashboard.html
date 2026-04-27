@@ -106,7 +106,7 @@
 
 <div class="stats-bar" id="statsBar">
     <div class="stat-card"><div class="label">大区经理</div><div class="value blue" id="statRegions">--</div></div>
-    <div class="stat-card"><div class="label">大区经理</div><div class="value blue" id="statXq">--</div></div>
+    <div class="stat-card"><div class="label">小区经理</div><div class="value blue" id="statXq">--</div></div>
     <div class="stat-card"><div class="label">已评分</div><div class="value green" id="statScored">--</div></div>
     <div class="stat-card"><div class="label">未评分</div><div class="value red" id="statUnscored">--</div></div>
     <div class="stat-card"><div class="label">平均分</div><div class="value" id="statAvg">--</div></div>
@@ -114,7 +114,7 @@
 
 <div class="container">
     <div class="filter-bar">
-        <label>大区经理：</label>
+        <label>小区经理：</label>
         <select id="filterRegion" onchange="applyFilter()"><option value="">全部</option></select>
         <label>评分状态：</label>
         <select id="filterScore" onchange="applyFilter()">
@@ -124,7 +124,7 @@
         </select>
     </div>
 
-    <div class="section-title">大区经理评分排名</div>
+    <div class="section-title">小区经理评分排名</div>
     <div class="ranking-grid" id="rankingGrid">
         <div class="loading"><div class="spinner"></div><br>加载数据中...</div>
     </div>
@@ -340,11 +340,11 @@ function renderTable(list) {
         <table>
             <thead>
                 <tr>
-                    <th>大区经理</th>
+                    <th>小区经理</th>
                     <th>城市</th>
                     <th>门店数</th>
                     <th>培训日</th>
-                    <th>小区抽检</th>
+                    <th>大区抽检</th>
                     <th>会议举办城市</th>
                 </tr>
             </thead>
