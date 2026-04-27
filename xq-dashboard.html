@@ -82,6 +82,72 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
 
+        /* 检查人相关样式 */
+        .inspector-select {
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            background: #fff;
+            min-width: 80px;
+            max-width: 120px;
+        }
+        .inspector-select:disabled {
+            background: #f3f4f6;
+            color: #9ca3af;
+        }
+        .inspector-select.conflict {
+            border-color: var(--danger);
+            background: #fef2f2;
+        }
+        .btn-inspector {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .btn-inspector:hover { background: #1565c0; }
+        .btn-inspector.secondary {
+            background: #64748b;
+        }
+        .btn-inspector.secondary:hover { background: #475569; }
+        .import-area {
+            display: none;
+            margin-top: 10px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .import-area.show { display: block; }
+        .import-area textarea {
+            width: 100%;
+            min-height: 100px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 13px;
+            resize: vertical;
+        }
+        .import-area textarea:focus { outline: none; border-color: var(--primary); }
+        .import-area .btn-row { margin-top: 8px; display: flex; gap: 8px; }
+        .import-area .hint { font-size: 12px; color: var(--text2); margin-top: 4px; }
+        .inspector-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .inspector-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #e0e7ff; color: #3730a3; padding: 2px 8px;
+            border-radius: 10px; font-size: 11px; font-weight: 500;
+        }
+        .inspector-tag .remove-tag {
+            cursor: pointer; font-size: 14px; line-height: 1;
+            color: #6366f1; margin-left: 2px;
+        }
+        .inspector-tag .remove-tag:hover { color: #dc2626; }
+
         @media (max-width: 640px) {
             .stats-bar { grid-template-columns: repeat(2, 1fr); }
             .container { padding: 0 12px 12px; }
@@ -90,6 +156,7 @@
             .region-header { padding: 10px 12px; }
             .region-body { padding: 0 10px 10px; }
             th, td { padding: 6px 6px; font-size: 12px; }
+            .inspector-select { min-width: 60px; font-size: 11px; }
         }
     </style>
 </head>
@@ -122,7 +189,21 @@
             <option value="scored">已评分</option>
             <option value="unscored">未评分</option>
         </select>
+        <button class="btn-inspector" onclick="toggleImportArea()">📋 导入检查人名单</button>
+        <button class="btn-inspector secondary" onclick="clearAllInspectors()">🗑️ 清空检查人分配</button>
     </div>
+
+    <div class="import-area" id="importArea">
+        <div style="font-weight:600; font-size:13px; margin-bottom:6px;">导入检查人名单</div>
+        <textarea id="inspectorInput" placeholder="每行一个检查人姓名，例如：&#10;张三&#10;李四&#10;王五"></textarea>
+        <div class="hint">每行一个姓名，导入后会覆盖现有名单。名单保存在本地浏览器中。</div>
+        <div class="btn-row">
+            <button class="btn-inspector" onclick="importInspectors()">✅ 确认导入</button>
+            <button class="btn-inspector secondary" onclick="toggleImportArea()">取消</button>
+        </div>
+    </div>
+
+    <div id="inspectorTagsArea" style="margin-bottom: 12px;"></div>
 
     <div class="section-title">小区经理评分排名</div>
     <div class="ranking-grid" id="rankingGrid">
@@ -145,6 +226,9 @@ const ISSUE_LABEL = 'xq-scheduler-data';
 // ==================== STATE ====================
 let allData = {}; // region -> [{ name, city, shopCount, days, spotCheck, score }]
 let currentFilter = { region: '', score: '' };
+let inspectorList = []; // 检查人名单
+let inspectorAssignments = {}; // { "regionName_xqName": inspectorName }  检查人分配
+let dataVersion = 0; // 用于渲染版本控制
 
 // ==================== DATA LOADING ====================
 async function loadData() {
@@ -327,14 +411,14 @@ function renderRegions() {
                     </div>
                 </div>
                 <div class="region-body" id="body-${region}">
-                    ${displayList.length > 0 ? renderTable(displayList) : '<div class="empty" style="padding:12px;">无匹配数据</div>'}
+                    ${displayList.length > 0 ? renderTable(displayList, region) : '<div class="empty" style="padding:12px;">无匹配数据</div>'}
                 </div>
             </div>
         `;
     }).join('');
 }
 
-function renderTable(list) {
+function renderTable(list, region) {
     const dayNames = ['', '一', '二', '三', '四', '五'];
     return `
         <table>
@@ -345,6 +429,7 @@ function renderTable(list) {
                     <th>门店数</th>
                     <th>培训日</th>
                     <th>大区抽检</th>
+                    <th>检查人</th>
                     <th>会议举办城市</th>
                 </tr>
             </thead>
@@ -356,6 +441,7 @@ function renderTable(list) {
                         <td>${xq.shopCount || 0}</td>
                         <td>${[1,2,3,4,5].map(d => `<span class="day-dot ${(xq.days || []).includes(d) ? 'day-active' : 'day-inactive'}">${d}</span>`).join('')}</td>
                         <td>${xq.spotCheck ? '<span class="check-icon">✓</span>' : '<span class="uncheck-icon">✗</span>'}</td>
+                        <td>${buildInspectorOptions(region, xq.name)}</td>
                         <td>${xq.meetingCity || '-'}</td>
                     </tr>
                 `).join('')}
@@ -376,8 +462,202 @@ function toggleRegion(region) {
     }
 }
 
+// ==================== 检查人管理 ====================
+function loadInspectorData() {
+    try {
+        const saved = localStorage.getItem('xq-dashboard-inspectors');
+        if (saved) inspectorList = JSON.parse(saved);
+    } catch(e) {}
+    try {
+        const savedAssign = localStorage.getItem('xq-dashboard-assignments');
+        if (savedAssign) inspectorAssignments = JSON.parse(savedAssign);
+    } catch(e) {}
+}
+
+function saveInspectorData() {
+    localStorage.setItem('xq-dashboard-inspectors', JSON.stringify(inspectorList));
+    localStorage.setItem('xq-dashboard-assignments', JSON.stringify(inspectorAssignments));
+}
+
+function toggleImportArea() {
+    const area = document.getElementById('importArea');
+    area.classList.toggle('show');
+}
+
+function importInspectors() {
+    const input = document.getElementById('inspectorInput').value.trim();
+    if (!input) return;
+    const names = input.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+    if (names.length === 0) return;
+    inspectorList = names;
+    saveInspectorData();
+    renderInspectorTags();
+    renderRegions();
+    document.getElementById('importArea').classList.remove('show');
+    document.getElementById('inspectorInput').value = '';
+}
+
+function removeInspector(name) {
+    inspectorList = inspectorList.filter(n => n !== name);
+    // 清除该检查人的所有分配
+    for (const key in inspectorAssignments) {
+        if (inspectorAssignments[key] === name) {
+            delete inspectorAssignments[key];
+        }
+    }
+    saveInspectorData();
+    renderInspectorTags();
+    renderRegions();
+}
+
+function clearAllInspectors() {
+    if (!confirm('确定要清空所有检查人分配吗？')) return;
+    inspectorAssignments = {};
+    saveInspectorData();
+    renderRegions();
+}
+
+function renderInspectorTags() {
+    const area = document.getElementById('inspectorTagsArea');
+    if (inspectorList.length === 0) {
+        area.innerHTML = '';
+        return;
+    }
+    area.innerHTML = `<div class="inspector-tags">
+        <span style="font-size:12px; color:var(--text2); margin-right:4px;">检查人名单：</span>
+        ${inspectorList.map(name => `<span class="inspector-tag">${name}<span class="remove-tag" onclick="removeInspector('${name}')">×</span></span>`).join('')}
+    </div>`;
+}
+
+// 获取某行小区经理对应的培训日
+function getXqDays(region, xqName) {
+    const list = allData[region];
+    if (!list) return [];
+    const xq = list.find(x => x.name === xqName);
+    return xq ? (xq.days || []) : [];
+}
+
+// 检查某检查人在某天是否已被占用
+function isInspectorBusy(inspectorName, day, excludeKey) {
+    for (const [key, assigned] of Object.entries(inspectorAssignments)) {
+        if (assigned !== inspectorName) continue;
+        if (key === excludeKey) continue; // 排除当前行
+        // 解析 key: "regionName_xqName"
+        const lastUnderscore = key.lastIndexOf('_');
+        if (lastUnderscore === -1) continue;
+        const region = key.substring(0, lastUnderscore);
+        const xqName = key.substring(lastUnderscore + 1);
+        const days = getXqDays(region, xqName);
+        if (days.includes(day)) return true;
+    }
+    return false;
+}
+
+// 获取检查人在某天已分配的大区（用于提示）
+function getInspectorDayAssignment(inspectorName, day) {
+    const results = [];
+    for (const [key, assigned] of Object.entries(inspectorAssignments)) {
+        if (assigned !== inspectorName) continue;
+        const lastUnderscore = key.lastIndexOf('_');
+        if (lastUnderscore === -1) continue;
+        const region = key.substring(0, lastUnderscore);
+        const xqName = key.substring(lastUnderscore + 1);
+        const days = getXqDays(region, xqName);
+        if (days.includes(day)) results.push(`${region}-${xqName}`);
+    }
+    return results;
+}
+
+function onInspectorChange(selectEl, region, xqName) {
+    const key = `${region}_${xqName}`;
+    const value = selectEl.value;
+    if (value) {
+        inspectorAssignments[key] = value;
+    } else {
+        delete inspectorAssignments[key];
+    }
+    saveInspectorData();
+    // 检查冲突并高亮
+    highlightConflicts();
+}
+
+function highlightConflicts() {
+    // 遍历所有 select，检查冲突
+    document.querySelectorAll('.inspector-select').forEach(sel => {
+        const region = sel.dataset.region;
+        const xqName = sel.dataset.xqname;
+        const key = `${region}_${xqName}`;
+        const value = inspectorAssignments[key];
+        if (!value) {
+            sel.classList.remove('conflict');
+            sel.title = '';
+            return;
+        }
+        const days = getXqDays(region, xqName);
+        let hasConflict = false;
+        let conflictInfo = [];
+        for (const day of days) {
+            const busy = getInspectorDayAssignment(value, day);
+            if (busy.length > 0) {
+                hasConflict = true;
+                conflictInfo.push(`第${day}天：${busy.join('、')}`);
+            }
+        }
+        if (hasConflict) {
+            sel.classList.add('conflict');
+            sel.title = `⚠️ 时间冲突：\n${conflictInfo.join('\n')}`;
+        } else {
+            sel.classList.remove('conflict');
+            sel.title = '';
+        }
+    });
+}
+
+function buildInspectorOptions(region, xqName) {
+    const key = `${region}_${xqName}`;
+    const currentValue = inspectorAssignments[key] || '';
+    const xqDays = getXqDays(region, xqName);
+
+    if (inspectorList.length === 0) {
+        return `<select class="inspector-select" disabled><option value="">未导入</option></select>`;
+    }
+
+    let options = `<select class="inspector-select" data-region="${region}" data-xqname="${xqName}" onchange="onInspectorChange(this, '${region}', '${xqName}')">`;
+    options += `<option value="">--选择--</option>`;
+
+    for (const name of inspectorList) {
+        // 检查该检查人是否在此行的所有培训日都被占用
+        let allDaysBusy = true;
+        let busyDays = [];
+        if (xqDays.length > 0) {
+            for (const day of xqDays) {
+                const busy = getInspectorDayAssignment(name, day, key);
+                if (busy.length > 0) {
+                    busyDays.push(day);
+                } else {
+                    allDaysBusy = false;
+                }
+            }
+        } else {
+            allDaysBusy = false; // 没有培训日，不限制
+        }
+
+        const disabled = allDaysBusy ? 'disabled' : '';
+        const label = allDaysBusy ? `${name}（已占用）` : name;
+        const selected = name === currentValue ? 'selected' : '';
+        options += `<option value="${name}" ${disabled} ${selected}>${label}</option>`;
+    }
+
+    options += '</select>';
+    return options;
+}
+
 // ==================== INIT ====================
-loadData();
+loadInspectorData();
+renderInspectorTags();
+loadData().then(() => {
+    highlightConflicts();
+});
 // Auto refresh every 5 minutes
 setInterval(loadData, 5 * 60 * 1000);
 </script>
