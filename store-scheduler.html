@@ -55,6 +55,9 @@
         .badge-green { background: #f6ffed; color: #389e0d; }
         .badge-orange { background: #fff7e6; color: #d48806; }
         .badge-red { background: #fff2f0; color: #cf1322; }
+        .check-cell { text-align: center; width: 50px; }
+        .check-cell input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+        tr.spot-check { background: #fff7e6 !important; }
         .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 2000; transform: translateX(120%); transition: transform 0.3s; }
         .toast.show { transform: translateX(0); }
         .toast.success { background: var(--success); }
@@ -155,11 +158,15 @@
             <div class="label">未排期</div>
             <div class="value red" id="statUnscheduled">0</div>
         </div>
+        <div class="stat-card">
+            <div class="label">待抽检</div>
+            <div class="value orange" id="statSpotCheck">0</div>
+        </div>
     </div>
 
     <!-- Info Banner -->
-    <div class="info-banner info" id="infoBanner">
-        💡 点击日期格子为店长安排培训日（每人仅限一天），点击已选日期可取消
+    <div class="info-banner" id="infoBanner">
+        ⚡ 勾选要抽检的店长（3~5名）
     </div>
 
     <!-- Toolbar -->
@@ -189,6 +196,7 @@
                         <th class="schedule-cell">周三<br><span style="font-weight:400;font-size:11px;color:#999">5/28</span></th>
                         <th class="schedule-cell">周四<br><span style="font-weight:400;font-size:11px;color:#999">5/29</span></th>
                         <th>培训日</th>
+                        <th class="check-cell">抽检</th>
                         <th>状态</th>
                     </tr>
                 </thead>
@@ -16472,7 +16480,8 @@ function initStoreState() {
         shopName: shop.name,
         city: shop.city || '',
         district: shop.district || '',
-        day: null // 0=Sun, 1=Mon, ..., 4=Thu
+        day: null, // 0=Sun, 1=Mon, ..., 4=Thu
+        spotCheck: false
     }));
 
     document.getElementById('xqNameLabel').textContent = currentXqName;
@@ -16497,7 +16506,8 @@ function buildPayload() {
             shopName: s.shopName,
             city: s.city,
             district: s.district,
-            day: s.day
+            day: s.day,
+            spotCheck: s.spotCheck || false
         })),
         updatedAt: new Date().toISOString()
     };
@@ -16564,6 +16574,7 @@ async function loadCloudData() {
                 const saved = payload.data[i];
                 if (saved) {
                     s.day = saved.day !== null && saved.day !== undefined ? saved.day : null;
+                    s.spotCheck = saved.spotCheck || false;
                 }
             });
             if (payload.updatedAt) {
@@ -16592,6 +16603,7 @@ function renderTable() {
     storeState.forEach((store, idx) => {
         const tr = document.createElement('tr');
         if (store.day !== null) tr.classList.add('scheduled');
+        if (store.spotCheck) tr.classList.add('spot-check');
 
         let html = `<td style="color:#999;">${idx + 1}</td>`;
         html += `<td style="font-weight:500;">${store.name}</td>`;
@@ -16608,6 +16620,9 @@ function renderTable() {
         const dayLabel = store.day !== null ? `${DAY_NAMES[store.day]} ${DAY_DATES[store.day]}` : '';
         html += `<td>${dayLabel ? `<span class="badge badge-blue">${dayLabel}</span>` : '<span style="color:#ccc;">--</span>'}</td>`;
 
+        // Spot check
+        html += `<td class="check-cell"><input type="checkbox" ${store.spotCheck ? 'checked' : ''} onchange="toggleSpotCheck(${idx}, this.checked)"></td>`;
+
         // Status
         html += `<td>${store.day !== null ? '<span class="badge badge-green">已排期</span>' : '<span class="badge badge-orange">未排期</span>'}</td>`;
 
@@ -16622,9 +16637,19 @@ function renderTable() {
 function updateStats() {
     const total = storeState.length;
     const scheduled = storeState.filter(s => s.day !== null).length;
+    const spotCheck = storeState.filter(s => s.spotCheck).length;
     document.getElementById('statTotal').textContent = total;
     document.getElementById('statScheduled').textContent = scheduled;
     document.getElementById('statUnscheduled').textContent = total - scheduled;
+    document.getElementById('statSpotCheck').textContent = spotCheck;
+
+    // Update banner
+    const banner = document.getElementById('infoBanner');
+    if (spotCheck > 0) {
+        banner.textContent = `⚡ 已选择 ${spotCheck} 名店长进行抽检`;
+    } else {
+        banner.textContent = '⚡ 勾选要抽检的店长（3~5名）';
+    }
 }
 
 function renderDaySummary() {
@@ -16653,6 +16678,14 @@ function toggleDay(idx, day) {
     triggerAutoSave();
 }
 
+function toggleSpotCheck(idx, checked) {
+    storeState[idx].spotCheck = checked;
+    const spotCheck = storeState.filter(s => s.spotCheck).length;
+    addLog(`${storeState[idx].name} ${checked ? '标记抽检' : '取消抽检'}（当前${spotCheck}名）`, 'info');
+    renderAll();
+    triggerAutoSave();
+}
+
 function triggerAutoSave() {
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(() => saveData(), 10000);
@@ -16664,7 +16697,7 @@ function exportExcel() {
     addLog('开始导出 Excel...', '');
 
     const wb = XLSX.utils.book_new();
-    const headers = ['序号', '店长姓名', '门店名称', '城市', '区域', '周日 5/25', '周一 5/26', '周二 5/27', '周三 5/28', '周四 5/29', '培训日', '状态'];
+    const headers = ['序号', '店长姓名', '门店名称', '城市', '区域', '周日 5/25', '周一 5/26', '周二 5/27', '周三 5/28', '周四 5/29', '培训日', '是否抽检', '状态'];
     const rows = [headers];
 
     storeState.forEach((store, i) => {
@@ -16676,12 +16709,13 @@ function exportExcel() {
             store.day === 3 ? '√' : '',
             store.day === 4 ? '√' : '',
             store.day !== null ? `${DAY_NAMES[store.day]} ${DAY_DATES[store.day]}` : '',
-            store.day !== null ? '已排期' : '未排期'
+            store.spotCheck ? '✓ 抽检' : '',
+            store.spotCheck ? '抽检' : (store.day !== null ? '已排期' : '未排期')
         ]);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:6},{wch:12},{wch:30},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:14},{wch:8}];
+    ws['!cols'] = [{wch:6},{wch:12},{wch:30},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:14},{wch:10},{wch:8}];
     XLSX.utils.book_append_sheet(wb, ws, '店长培训排期');
 
     const filename = `${currentRegion}_${currentXqName}_店长培训排期_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`;
@@ -16693,7 +16727,7 @@ function exportExcel() {
 // ==================== RESET ====================
 function resetAll() {
     if (!confirm('确定要重置所有排期吗？')) return;
-    storeState.forEach(s => { s.day = null; });
+    storeState.forEach(s => { s.day = null; s.spotCheck = false; });
     renderAll();
     addLog('已重置所有排期', 'warn');
     showToast('已重置', 'warning');
