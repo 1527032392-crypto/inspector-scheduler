@@ -553,10 +553,11 @@ function isInspectorBusy(inspectorName, day, excludeKey) {
 }
 
 // 获取检查人在某天已分配的小区经理（用于提示）
-function getInspectorDayAssignment(inspectorName, day) {
+function getInspectorDayAssignment(inspectorName, day, excludeKey) {
     const results = [];
     for (const [key, assigned] of Object.entries(inspectorAssignments)) {
         if (assigned !== inspectorName) continue;
+        if (key === excludeKey) continue;
         const lastUnderscore = key.lastIndexOf('_');
         if (lastUnderscore === -1) continue;
         const region = key.substring(0, lastUnderscore);
@@ -596,7 +597,7 @@ function highlightConflicts() {
         let hasConflict = false;
         let conflictInfo = [];
         for (const day of days) {
-            const busy = getInspectorDayAssignment(value, day);
+            const busy = getInspectorDayAssignment(value, day, key);
             if (busy.length > 0) {
                 hasConflict = true;
                 conflictInfo.push(`第${day}天：${busy.join('、')}`);
