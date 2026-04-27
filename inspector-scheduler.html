@@ -162,6 +162,130 @@
             color: #389e0d;
         }
 
+        .archive-notice {
+            background: linear-gradient(135deg, #e6f4ff, #bae0ff);
+            border: 1px solid #91caff;
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #003eb3;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            animation: fadeSlideIn 0.3s ease;
+        }
+
+        .archive-notice .restore-link {
+            color: #1677ff;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .archive-notice .restore-link:hover {
+            color: #0958d9;
+        }
+
+        .archive-notice .dismiss-link {
+            color: #8c8c8c;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-left: 12px;
+        }
+
+        .archive-notice .dismiss-link:hover {
+            color: #595959;
+        }
+
+        /* 月历弹窗样式 */
+        .calendar-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            overflow-y: auto;
+        }
+        .calendar-modal.show { display: flex; }
+        .calendar-panel {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 1100px;
+            overflow: hidden;
+        }
+        .calendar-header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            color: #fff;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .calendar-header h2 { font-size: 18px; font-weight: 600; }
+        .calendar-header .btn-row { display: flex; gap: 8px; }
+        .calendar-header .btn-row button {
+            padding: 6px 14px; border: 1px solid rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.15); color: #fff; border-radius: 6px;
+            cursor: pointer; font-size: 13px;
+        }
+        .calendar-header .btn-row button:hover { background: rgba(255,255,255,0.3); }
+        .calendar-body { padding: 20px 24px; }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: #e8e8e8;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .cal-header-cell {
+            background: #f5f5f5;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+        }
+        .cal-cell {
+            background: #fff;
+            padding: 8px;
+            min-height: 100px;
+            font-size: 12px;
+        }
+        .cal-cell.today { background: #e6f4ff; }
+        .cal-cell.empty { background: #fafafa; min-height: 40px; }
+        .cal-date { font-weight: 700; font-size: 14px; color: #333; margin-bottom: 6px; }
+        .cal-date.weekend { color: var(--danger); }
+        .cal-item {
+            background: #e6f4ff;
+            border-left: 3px solid var(--primary);
+            padding: 3px 6px;
+            margin-bottom: 4px;
+            border-radius: 0 4px 4px 0;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .cal-item .cal-inspector { color: var(--primary); font-weight: 600; }
+        .cal-item .cal-target { color: #333; }
+        .cal-item .cal-city { color: #999; font-size: 10px; }
+
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .main-grid {
             display: grid;
             grid-template-columns: 1fr 380px;
@@ -783,6 +907,21 @@
     <div style="font-size:12px; opacity:0.6;" id="currentTime"></div>
 </div>
 
+<!-- 月历弹窗 -->
+<div class="calendar-modal" id="calendarModal">
+    <div class="calendar-panel">
+        <div class="calendar-header">
+            <h2>📅 排期月历 — 大区培训检查</h2>
+            <div class="btn-row">
+                <button onclick="exportCalendarImage()">📸 导出图片</button>
+                <button onclick="exportCalendarExcel()">📊 导出Excel</button>
+                <button onclick="closeCalendar()">✕ 关闭</button>
+            </div>
+        </div>
+        <div class="calendar-body" id="calendarBody"></div>
+    </div>
+</div>
+
 <div class="container">
     <!-- Stats -->
     <div class="stats-bar">
@@ -808,6 +947,15 @@
         </div>
     </div>
 
+    <!-- Archive Notice -->
+    <div class="archive-notice" id="archiveNotice" style="display:none;">
+        <span>📂 检测到云端存档（<span id="archiveTime"></span>），</span>
+        <div>
+            <span class="restore-link" onclick="restoreArchive()">点击恢复</span>
+            <span class="dismiss-link" onclick="dismissArchive()">忽略</span>
+        </div>
+    </div>
+
     <!-- Info Banner -->
     <div class="info-banner" id="infoBanner">
         ⚡ 点击表格中的「免检」列勾选/取消免检，然后点击「自动分配检查员」生成方案
@@ -818,6 +966,7 @@
         <button class="btn btn-success" onclick="autoAssign()">🔄 自动分配检查员</button>
         <button class="btn btn-primary" onclick="saveData()" id="saveBtn">💾 保存到云端</button>
         <button class="btn btn-primary" onclick="exportExcel()">📥 导出 Excel</button>
+        <button class="btn btn-outline" onclick="openCalendar()">📅 月历视图</button>
         <button class="btn btn-outline" onclick="resetAll()">🔃 重置所有</button>
         <button class="btn btn-outline" onclick="showDraftPlan()" style="border-color:#faad14;color:#faad14;">💡 拟定方案</button>
         <div style="flex:1;"></div>
@@ -2196,6 +2345,8 @@ async function saveData() {
     }
 }
 
+let _cachedArchive = null; // 暂存云端存档，等待用户确认恢复
+
 async function loadHqData() {
     try {
         const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=open&per_page=10`, {
@@ -2208,31 +2359,52 @@ async function loadHqData() {
         hqIssueNumber = issue.number;
         const payload = JSON.parse(issue.body);
         if (payload.managers && Array.isArray(payload.managers)) {
-            payload.managers.forEach(saved => {
-                const m = state.managers.find(sm => sm.name === saved.name);
-                if (m) {
-                    m.days = saved.days || m.days;
-                    m.city = saved.city || m.city;
-                    m.originalCity = saved.originalCity || m.originalCity;
-                    m.exempt = saved.exempt !== undefined ? saved.exempt : m.exempt;
-                    m.fixedExempt = saved.fixedExempt !== undefined ? saved.fixedExempt : m.fixedExempt;
-                    m.assignedInspector = saved.assignedInspector !== undefined ? saved.assignedInspector : null;
-                    m.manualAssign = saved.manualAssign || false;
-                }
-            });
-            if (payload.assignments) {
-                state.assignments = payload.assignments;
-            }
-            renderTable();
-            renderInspectors();
-            renderAssignmentDetail();
-            updateStats();
-            updateInfoBanner();
-            addLog(`已从云端加载数据（更新于 ${new Date(payload.updatedAt).toLocaleString('zh-CN')}）`, 'info');
+            _cachedArchive = payload;
+            // 显示存档恢复提示，而不是自动恢复
+            const notice = document.getElementById('archiveNotice');
+            const timeEl = document.getElementById('archiveTime');
+            timeEl.textContent = payload.updatedAt ? new Date(payload.updatedAt).toLocaleString('zh-CN') : '时间未知';
+            notice.style.display = 'flex';
         }
     } catch (e) {
         console.error('Load error:', e);
     }
+}
+
+function restoreArchive() {
+    if (!_cachedArchive) return;
+    const payload = _cachedArchive;
+    payload.managers.forEach(saved => {
+        const m = state.managers.find(sm => sm.name === saved.name);
+        if (m) {
+            m.days = saved.days || m.days;
+            m.city = saved.city || m.city;
+            m.originalCity = saved.originalCity || m.originalCity;
+            m.exempt = saved.exempt !== undefined ? saved.exempt : m.exempt;
+            m.fixedExempt = saved.fixedExempt !== undefined ? saved.fixedExempt : m.fixedExempt;
+            m.assignedInspector = saved.assignedInspector !== undefined ? saved.assignedInspector : null;
+            m.manualAssign = saved.manualAssign || false;
+        }
+    });
+    if (payload.assignments) {
+        state.assignments = payload.assignments;
+    }
+    renderTable();
+    renderInspectors();
+    renderAssignmentDetail();
+    updateStats();
+    updateInfoBanner();
+    addLog(`已从云端恢复存档（更新于 ${new Date(payload.updatedAt).toLocaleString('zh-CN')}）`, 'info');
+    showToast('存档已恢复', 'success');
+    // 隐藏提示
+    document.getElementById('archiveNotice').style.display = 'none';
+    _cachedArchive = null;
+}
+
+function dismissArchive() {
+    document.getElementById('archiveNotice').style.display = 'none';
+    _cachedArchive = null;
+    addLog('已忽略云端存档', 'info');
 }
 
 // ==================== UTILS ====================
@@ -2260,6 +2432,128 @@ function showToast(msg, type = 'success') {
 
 // ==================== START ====================
 init();
+
+// ==================== 月历功能 ====================
+const CAL_YEAR = 2025, CAL_MONTH = 4; // 5月 (0-indexed)
+const CAL_DAY_DATES = [11,12,13,14,15]; // 周一到周五对应的日期
+
+function openCalendar() {
+    document.getElementById('calendarModal').classList.add('show');
+    renderCalendar();
+}
+function closeCalendar() {
+    document.getElementById('calendarModal').classList.remove('show');
+}
+
+function renderCalendar() {
+    const container = document.getElementById('calendarBody');
+    const firstDay = new Date(CAL_YEAR, CAL_MONTH, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
+    const dayNames = ['日','一','二','三','四','五','六'];
+
+    let html = '<div class="calendar-grid">';
+    // Header row
+    dayNames.forEach(d => { html += `<div class="cal-header-cell">${d}</div>`; });
+
+    // Empty cells before first day
+    for (let i = 0; i < firstDay; i++) {
+        html += '<div class="cal-cell empty"></div>';
+    }
+
+    // Day cells
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dow = new Date(CAL_YEAR, CAL_MONTH, d).getDay();
+        const isWeekend = dow === 0 || dow === 6;
+        const dayIndex = CAL_DAY_DATES.indexOf(d); // 0-4 for Mon-Fri
+
+        html += `<div class="cal-cell${isWeekend ? ' weekend' : ''}">`;
+        html += `<div class="cal-date${isWeekend ? ' weekend' : ''}">${d}</div>`;
+
+        if (dayIndex !== -1) {
+            // 有培训安排的一天
+            const dayNum = dayIndex + 1;
+            const managers = state.managers.filter(m => !m.exempt && m.days.includes(dayNum));
+            managers.forEach(m => {
+                const inspector = m.assignedInspector || '待分配';
+                html += `<div class="cal-item">
+                    <div class="cal-target">${m.name}（${m.responsibleCities}）</div>
+                    <div class="cal-city">📍${m.city}</div>
+                </div>`;
+            });
+        }
+
+        html += '</div>';
+    }
+
+    // Fill remaining cells
+    const totalCells = firstDay + daysInMonth;
+    const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let i = 0; i < remaining; i++) {
+        html += '<div class="cal-cell empty"></div>';
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function exportCalendarExcel() {
+    const wb = XLSX.utils.book_new();
+    const headers = ['日期', '星期', '大区经理', '会议城市', '负责城市'];
+    const rows = [headers];
+
+    for (let i = 0; i < CAL_DAY_DATES.length; i++) {
+        const dayNum = i + 1;
+        const date = CAL_DAY_DATES[i];
+        const dayName = DAY_NAMES[i];
+        const managers = state.managers.filter(m => !m.exempt && m.days.includes(dayNum));
+        if (managers.length === 0) continue;
+        managers.forEach((m, idx) => {
+            rows.push([
+                `5月${date}日`, dayName,
+                m.name,
+                m.city,
+                m.responsibleCities
+            ]);
+        });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:10},{wch:8},{wch:12},{wch:10},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, ws, '排期月历');
+    XLSX.writeFile(wb, '大区培训检查月历.xlsx');
+}
+
+function exportCalendarImage() {
+    // Use html2canvas if available, otherwise fallback
+    if (typeof html2canvas !== 'undefined') {
+        const panel = document.querySelector('.calendar-panel');
+        html2canvas(panel, { scale: 2, useCORS: true }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = '大区培训检查月历.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    } else {
+        // Fallback: use window.print
+        const panel = document.getElementById('calendarBody');
+        const win = window.open('', '_blank');
+        win.document.write(`<html><head><title>排期月历</title>
+            <style>
+                body { font-family: -apple-system, sans-serif; padding: 20px; }
+                .calendar-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 1px; background: #e8e8e8; border: 1px solid #e8e8e8; }
+                .cal-header-cell { background: #f5f5f5; padding: 8px; text-align: center; font-size: 12px; font-weight: 600; color: #666; }
+                .cal-cell { background: #fff; padding: 8px; min-height: 100px; font-size: 12px; page-break-inside: avoid; }
+                .cal-cell.empty { background: #fafafa; min-height: 40px; }
+                .cal-date { font-weight: 700; font-size: 14px; color: #333; margin-bottom: 6px; }
+                .cal-item { background: #e6f4ff; border-left: 3px solid #1677ff; padding: 3px 6px; margin-bottom: 4px; border-radius: 0 4px 4px 0; font-size: 11px; }
+                .cal-target { color: #333; }
+                .cal-city { color: #999; font-size: 10px; }
+            </style></head><body>
+            <h2>📅 排期月历 — 大区培训检查</h2>${panel.innerHTML}
+            <script>setTimeout(()=>{window.print();},500);<\/script></body></html>`);
+        win.document.close();
+    }
+}
 </script>
 
 </body>
