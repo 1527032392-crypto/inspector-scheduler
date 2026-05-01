@@ -263,6 +263,116 @@ const ISSUE_LABEL = 'xq-scheduler-data';
 const AMAP_KEY = 'e69a6156567ac237152dc643b55355c8';
 let meetingCitySearchTimer = null;
 
+function parseVenueInput(input) {
+    const raw = (input || '').trim();
+    if (!raw) {
+        return { raw: '', keyword: '', note: '', cityHint: '' };
+    }
+
+    const normalized = raw.replace(/[，；;]/g, ',').replace(/\s+/g, ' ').trim();
+    const noteMatch = normalized.match(/(?:会议室位置|会议地点|会场位置|会场|位置|备注)[:：]\s*(.+)$/i);
+    const note = noteMatch ? noteMatch[1].trim() : '';
+    const base = noteMatch ? normalized.slice(0, noteMatch.index).replace(/[,\s]+$/, '') : normalized;
+    const parts = base.split(',').map(x => x.trim()).filter(Boolean);
+    const cityHint = parts.find(x => /市|区|县/.test(x)) || '';
+    const keyword = parts.length > 1 ? parts.slice(0, 2).join(' ') : base;
+
+    return { raw, keyword: keyword.trim(), note, cityHint };
+}
+
+function buildVenueSearchCandidates(input) {
+    const parsed = parseVenueInput(input);
+    const candidates = [];
+    const push = (value) => {
+        const v = (value || '').trim();
+        if (v && !candidates.includes(v)) candidates.push(v);
+    };
+
+    push(parsed.keyword);
+
+    const stripped = parsed.keyword
+        .replace(/(?:会议室|大堂|一层|二层|三层|四层|五层|\([^)]+\)|（[^）]+）)/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    push(stripped);
+
+    const hotelMatch = stripped.match(/(.+?(?:酒店|宾馆|饭店|中心|大厦|广场|商场|国际会议中心))/);
+    if (hotelMatch) push(hotelMatch[1]);
+
+    const addressMatch = stripped.match(/(.+?(?:路|街|胡同|巷|大道|弄|号))/);
+    if (addressMatch) push(addressMatch[1]);
+
+    return { parsed, candidates };
+}
+
+function formatVenueDisplay(address, note) {
+    return note ? `${address}（${note}）` : address;
+}
+
+function amapJsonp(url) {
+    return new Promise((resolve, reject) => {
+        const callbackName = `amapJsonp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const script = document.createElement('script');
+        const cleanup = () => {
+            delete window[callbackName];
+            script.remove();
+        };
+
+        window[callbackName] = (data) => {
+            cleanup();
+            resolve(data);
+        };
+
+        script.onerror = () => {
+            cleanup();
+            reject(new Error('AMap JSONP request failed'));
+        };
+
+        const joiner = url.includes('?') ? '&' : '?';
+        script.src = `${url}${joiner}output=JSON&callback=${callbackName}`;
+        document.body.appendChild(script);
+    });
+}
+
+async function searchVenueWithAmap(keyword, cityHint) {
+    const results = [];
+    const seen = new Set();
+    const pushResult = (item) => {
+        const key = `${item.type}|${item.formatted_address}|${item.location || ''}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        results.push(item);
+    };
+
+    const geoData = await amapJsonp(`https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(keyword)}&key=${AMAP_KEY}`);
+    if (geoData.status === '1' && geoData.geocodes) {
+        geoData.geocodes.forEach(geo => {
+            pushResult({
+                type: 'geo',
+                formatted_address: geo.formatted_address,
+                detail: `${geo.province || ''}${geo.city || ''}${geo.district || ''}` || '地址解析',
+                location: geo.location || ''
+            });
+        });
+    }
+
+    const poiUrl = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(keyword)}&offset=8&page=1&extensions=base&key=${AMAP_KEY}` + (cityHint ? `&city=${encodeURIComponent(cityHint)}` : '');
+    const poiData = await amapJsonp(poiUrl);
+    if (poiData.status === '1' && poiData.pois) {
+        poiData.pois.forEach(poi => {
+            const address = [poi.pname, poi.cityname, poi.adname, poi.address].filter(Boolean).join('');
+            pushResult({
+                type: 'poi',
+                formatted_address: address || poi.name,
+                detail: poi.name || 'POI',
+                location: poi.location || ''
+            });
+        });
+    }
+
+    return results.slice(0, 8);
+}
+
 // ==================== DATA ====================
 const STORE_DATA = {
   "付钟庆": [
@@ -16807,30 +16917,35 @@ async function doMeetingCitySearch(idx, keyword) {
     }
     container.innerHTML = '<div class="city-search-hint">搜索中...</div>';
     try {
-        const resp = await fetch(`https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(keyword)}&key=${AMAP_KEY}`);
-        const data = await resp.json();
-        if (data.status === '1' && data.geocodes && data.geocodes.length > 0) {
+        const { parsed, candidates } = buildVenueSearchCandidates(keyword);
+        let results = [];
+        for (const candidate of candidates) {
+            results = await searchVenueWithAmap(candidate, parsed.cityHint);
+            if (results.length > 0) break;
+        }
+
+        if (results.length > 0) {
             container.innerHTML = '';
-            data.geocodes.slice(0, 8).forEach(geo => {
+            results.forEach(result => {
                 const item = document.createElement('div');
                 item.className = 'city-search-item';
                 item.innerHTML = `
-                    <div class="addr-name">${geo.formatted_address}</div>
-                    <div class="addr-detail">${geo.province}${geo.city}${geo.district}${(geo.street||[]).join('')}${(geo.number||[]).join('')}</div>
+                    <div class="addr-name">${result.formatted_address}</div>
+                    <div class="addr-detail">${result.detail}${parsed.note ? `｜会议室：${parsed.note}` : ''}</div>
                 `;
                 item.addEventListener('click', () => {
-                    xqState[idx].meetingCity = geo.formatted_address;
+                    xqState[idx].meetingCity = formatVenueDisplay(result.formatted_address, parsed.note);
                     item.closest('.city-search-overlay').remove();
                     renderTable();
-                    addLog(`已设置「${xqState[idx].name}」会议地址：${geo.formatted_address}`, 'success');
+                    addLog(`已设置「${xqState[idx].name}」会议地址：${formatVenueDisplay(result.formatted_address, parsed.note)}`, 'success');
                 });
                 container.appendChild(item);
             });
         } else {
-            container.innerHTML = '<div class="city-search-hint">未找到匹配地址，请换个关键词</div>';
+            container.innerHTML = '<div class="city-search-hint">未找到匹配地址，请尝试只输入门牌号或酒店名</div>';
         }
     } catch (e) {
-        container.innerHTML = '<div class="city-search-hint" style="color:#f5222d;">搜索失败，请检查网络</div>';
+        container.innerHTML = '<div class="city-search-hint" style="color:#f5222d;">搜索失败，请检查高德Key配置或页面访问方式</div>';
     }
 }
 
