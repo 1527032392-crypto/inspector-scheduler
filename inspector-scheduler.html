@@ -1658,6 +1658,53 @@ function formatVenueDisplay(address, note) {
     return note ? `${address}（${note}）` : address;
 }
 
+function isDefaultVenue(manager, city) {
+    const value = (city || '').trim();
+    if (!value) return true;
+    return value === manager.originalCity || value === manager.responsibleCities;
+}
+
+function hasDetailedVenue(city) {
+    return /(?:路|街|胡同|巷|大道|弄|号|酒店|宾馆|饭店|中心|大厦|广场|商场|会议室)/.test(city || '');
+}
+
+function applyAddressOnlyArchive(payload) {
+    if (!payload || !Array.isArray(payload.managers)) return false;
+    let changed = false;
+    payload.managers.forEach(saved => {
+        const m = state.managers.find(sm => sm.name === saved.name);
+        if (!m || !saved.city || !hasDetailedVenue(saved.city)) return;
+        if (!isDefaultVenue(m, m.city)) return;
+
+        m.city = saved.city;
+        m.originalCity = saved.originalCity || m.originalCity;
+        m.searchBase = saved.searchBase || saved.city;
+        m.venueNote = saved.venueNote || '';
+        changed = true;
+    });
+    return changed;
+}
+
+function mergeAddressFieldsWithArchive(payload, archive) {
+    if (!archive || !Array.isArray(archive.managers)) return payload;
+    const savedByName = new Map(archive.managers.map(m => [m.name, m]));
+
+    payload.managers.forEach(current => {
+        const saved = savedByName.get(current.name);
+        if (!saved || !saved.city || !hasDetailedVenue(saved.city)) return;
+
+        const base = state.managers.find(m => m.name === current.name);
+        if (!base || !isDefaultVenue(base, current.city)) return;
+
+        current.city = saved.city;
+        current.originalCity = saved.originalCity || current.originalCity;
+        current.searchBase = saved.searchBase || saved.city;
+        current.venueNote = saved.venueNote || '';
+    });
+
+    return payload;
+}
+
 function amapJsonp(url) {
     return new Promise((resolve, reject) => {
         const callbackName = `amapJsonp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -2428,6 +2475,8 @@ function buildHqPayload() {
             days: m.days,
             city: m.city,
             originalCity: m.originalCity,
+            searchBase: m.searchBase,
+            venueNote: m.venueNote,
             responsibleCities: m.responsibleCities,
             exempt: m.exempt,
             fixedExempt: m.fixedExempt,
@@ -2444,7 +2493,9 @@ async function saveData() {
     saveBtn.disabled = true;
     saveBtn.textContent = '⏳ 保存中...';
     try {
-        const payload = buildHqPayload();
+        const latestArchive = await fetchHqArchive().catch(() => _cachedArchive);
+        if (latestArchive) _cachedArchive = latestArchive;
+        const payload = mergeAddressFieldsWithArchive(buildHqPayload(), _cachedArchive);
         const body = JSON.stringify(payload, null, 2);
         if (hqIssueNumber) {
             const resp = await fetch(`${GITHUB_API}/${hqIssueNumber}`, {
@@ -2477,19 +2528,30 @@ async function saveData() {
 
 let _cachedArchive = null; // 暂存云端存档，等待用户确认恢复
 
+async function fetchHqArchive() {
+    const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=open&per_page=10`, {
+        headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (!resp.ok) return null;
+    const issues = await resp.json();
+    const issue = issues.find(i => i.title === '[大区排期] 总部检查排期');
+    if (!issue) return null;
+    hqIssueNumber = issue.number;
+    return JSON.parse(issue.body);
+}
+
 async function loadHqData() {
     try {
-        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=open&per_page=10`, {
-            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
-        });
-        if (!resp.ok) return;
-        const issues = await resp.json();
-        const issue = issues.find(i => i.title === '[大区排期] 总部检查排期');
-        if (!issue) return;
-        hqIssueNumber = issue.number;
-        const payload = JSON.parse(issue.body);
+        const payload = await fetchHqArchive();
+        if (!payload) return;
         if (payload.managers && Array.isArray(payload.managers)) {
             _cachedArchive = payload;
+            if (applyAddressOnlyArchive(payload)) {
+                renderTable();
+                updateStats();
+                updateInfoBanner();
+                addLog('已自动恢复云端保存的详细地址', 'info');
+            }
             // 显示存档恢复提示，而不是自动恢复
             const notice = document.getElementById('archiveNotice');
             const timeEl = document.getElementById('archiveTime');
@@ -2510,6 +2572,8 @@ function restoreArchive() {
             m.days = saved.days || m.days;
             m.city = saved.city || m.city;
             m.originalCity = saved.originalCity || m.originalCity;
+            m.searchBase = saved.searchBase || m.searchBase || m.city;
+            m.venueNote = saved.venueNote || m.venueNote || '';
             m.exempt = saved.exempt !== undefined ? saved.exempt : m.exempt;
             m.fixedExempt = saved.fixedExempt !== undefined ? saved.fixedExempt : m.fixedExempt;
             m.assignedInspector = saved.assignedInspector !== undefined ? saved.assignedInspector : null;
