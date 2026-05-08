@@ -65,6 +65,7 @@
             font-size: 12px;
             background: #fff;
             color: var(--text);
+            cursor: pointer;
         }
         .time-input:disabled {
             background: #f5f5f5;
@@ -16637,7 +16638,7 @@ function renderTable() {
         // Day label
         const dayLabel = store.day !== null ? `${DAY_NAMES[store.day]} ${DAY_DATES[store.day]}` : '';
         html += `<td>${dayLabel ? `<span class="badge badge-blue">${dayLabel}</span>` : '<span style="color:#ccc;">--</span>'}</td>`;
-        html += `<td><input class="time-input" type="time" step="1800" value="${store.scheduledTime || ''}" ${store.day === null ? 'disabled' : ''} onchange="updateScheduledTime(${idx}, this.value)" title="${store.day === null ? '请先选择培训日' : '设置排定时间（仅支持整点或半点）'}"></td>`;
+        html += `<td><select class="time-input" ${store.day === null ? 'disabled' : ''} onchange="updateScheduledTime(${idx}, this.value)" title="${store.day === null ? '请先选择培训日' : '选择排定时间（整点或半点）'}">${renderTimeOptions(store.scheduledTime || '')}</select></td>`;
 
         // Spot check
         html += `<td class="check-cell"><input type="checkbox" ${store.spotCheck ? 'checked' : ''} onchange="toggleSpotCheck(${idx}, this.checked)"></td>`;
@@ -16702,6 +16703,17 @@ function updateScheduledTime(idx, value) {
     storeState[idx].scheduledTime = value;
     addLog(`${storeState[idx].name} ${value ? `排定时间设为 ${value}` : '清空排定时间'}`, 'info');
     triggerAutoSave();
+}
+
+function renderTimeOptions(selectedTime) {
+    let html = '<option value="">--</option>';
+    for (let hour = 0; hour < 24; hour++) {
+        ['00', '30'].forEach(minute => {
+            const value = `${String(hour).padStart(2, '0')}:${minute}`;
+            html += `<option value="${value}" ${selectedTime === value ? 'selected' : ''}>${value}</option>`;
+        });
+    }
+    return html;
 }
 
 function toggleSpotCheck(idx, checked) {
