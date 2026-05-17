@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>培训抽查汇总看板</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -149,6 +150,98 @@
         }
         .inspector-tag .remove-tag:hover { color: #dc2626; }
 
+        .map-workspace {
+            display: grid;
+            grid-template-columns: minmax(420px, 1.4fr) minmax(320px, 0.9fr);
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+        .map-panel, .province-panel {
+            background: var(--card);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .map-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            gap: 10px;
+        }
+        .map-title { font-size: 14px; font-weight: 600; }
+        .map-meta { font-size: 12px; color: var(--text2); }
+        #chinaMap { height: 460px; min-height: 360px; }
+        .map-fallback { padding: 80px 20px; text-align: center; color: var(--text2); font-size: 13px; }
+        .province-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+        .province-detail { padding: 14px; border-bottom: 1px solid var(--border); }
+        .province-detail h3 { font-size: 16px; margin-bottom: 8px; }
+        .province-detail .meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+        .province-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #f3f4f6;
+            color: #4b5563;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .province-chip.region { background: #e0f2fe; color: #0369a1; }
+        .province-chip.inspector { background: #ecfdf5; color: #047857; }
+        .province-select {
+            width: 100%;
+            margin-top: 8px;
+            padding: 7px 9px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: #fff;
+            font-size: 13px;
+        }
+        .province-list {
+            padding: 8px;
+            overflow-y: auto;
+            max-height: 360px;
+        }
+        .province-row {
+            width: 100%;
+            border: 1px solid transparent;
+            background: #fff;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            text-align: left;
+            cursor: pointer;
+        }
+        .province-row:hover { background: #f8fafc; border-color: var(--border); }
+        .province-row.active { background: #e6f4ff; border-color: #91caff; }
+        .province-row-main { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+        .province-name { font-size: 13px; font-weight: 600; }
+        .province-count { font-size: 12px; color: var(--text2); }
+        .province-row-sub { margin-top: 3px; font-size: 11px; color: var(--text2); line-height: 1.4; }
+        .region-province-summary {
+            padding: 12px 14px;
+            border-top: 1px solid var(--border);
+            background: #fafafa;
+        }
+        .region-province-summary h3 { font-size: 13px; margin-bottom: 8px; }
+        .region-province-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 8px;
+        }
+        .region-province-item {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+        }
+        .region-province-item strong { display: block; margin-bottom: 4px; font-size: 12px; }
+        .region-province-item span { color: var(--text2); line-height: 1.45; }
+
         @media (max-width: 640px) {
             .stats-bar { grid-template-columns: repeat(2, 1fr); }
             .container { padding: 0 12px 12px; }
@@ -158,6 +251,9 @@
             .region-body { padding: 0 10px 10px; }
             th, td { padding: 6px 6px; font-size: 12px; }
             .inspector-select { min-width: 60px; font-size: 11px; }
+            .map-workspace { grid-template-columns: 1fr; }
+            #chinaMap { height: 340px; }
+            .province-list { max-height: 300px; }
         }
 
         /* 月历弹窗样式 */
@@ -263,6 +359,25 @@
 
     <div id="inspectorTagsArea" style="margin-bottom: 12px;"></div>
 
+    <div class="section-title">大区省份地图</div>
+    <div class="map-workspace">
+        <div class="map-panel">
+            <div class="map-toolbar">
+                <div>
+                    <div class="map-title">中国省份负责区域</div>
+                    <div class="map-meta" id="mapMeta">等待数据加载...</div>
+                </div>
+                <button class="btn-inspector secondary" onclick="clearProvinceAssignments()">清空省份分配</button>
+            </div>
+            <div id="chinaMap"><div class="map-fallback">地图加载中...</div></div>
+            <div class="region-province-summary" id="regionProvinceSummary"></div>
+        </div>
+        <div class="province-panel">
+            <div class="province-detail" id="provinceDetail"></div>
+            <div class="province-list" id="provinceList"></div>
+        </div>
+    </div>
+
     <div class="section-title">小区经理评分排名</div>
     <div class="ranking-grid" id="rankingGrid">
         <div class="loading"><div class="spinner"></div><br>加载数据中...</div>
@@ -286,7 +401,47 @@ let allData = {}; // region -> [{ name, city, shopCount, days, spotCheck, score 
 let currentFilter = { region: '', score: '' };
 let inspectorList = []; // 检查人名单
 let inspectorAssignments = {}; // { "regionName_xqName": inspectorName }  检查人分配
+let provinceAssignments = {}; // { "省份": inspectorName }  省份检查人分配
+let provinceData = [];
+let selectedProvince = '';
+let chinaMapChart = null;
+let chinaMapReady = false;
+let chinaMapLoading = null;
 let dataVersion = 0; // 用于渲染版本控制
+
+const PROVINCE_ALIASES = {
+    '北京': '北京市', '天津': '天津市', '上海': '上海市', '重庆': '重庆市',
+    '内蒙古': '内蒙古自治区', '广西': '广西壮族自治区', '西藏': '西藏自治区',
+    '宁夏': '宁夏回族自治区', '新疆': '新疆维吾尔自治区', '香港': '香港特别行政区', '澳门': '澳门特别行政区'
+};
+
+const CITY_PROVINCE_MAP = {
+    '北京市':'北京市','天津市':'天津市','上海市':'上海市',
+    '南京市':'江苏省','无锡市':'江苏省','徐州市':'江苏省','常州市':'江苏省','苏州市':'江苏省','南通市':'江苏省','连云港市':'江苏省','淮安市':'江苏省','盐城市':'江苏省','扬州市':'江苏省','镇江市':'江苏省','泰州市':'江苏省','宿迁市':'江苏省',
+    '杭州市':'浙江省','宁波市':'浙江省','温州市':'浙江省','嘉兴市':'浙江省','湖州市':'浙江省','绍兴市':'浙江省','金华市':'浙江省','衢州市':'浙江省','舟山市':'浙江省','台州市':'浙江省','丽水市':'浙江省',
+    '合肥市':'安徽省','芜湖市':'安徽省','蚌埠市':'安徽省','淮南市':'安徽省','马鞍山市':'安徽省','淮北市':'安徽省','铜陵市':'安徽省','安庆市':'安徽省','黄山市':'安徽省','滁州市':'安徽省','阜阳市':'安徽省','宿州市':'安徽省','六安市':'安徽省','亳州市':'安徽省','池州市':'安徽省','宣城市':'安徽省',
+    '济南市':'山东省','青岛市':'山东省','淄博市':'山东省','枣庄市':'山东省','东营市':'山东省','烟台市':'山东省','潍坊市':'山东省','济宁市':'山东省','泰安市':'山东省','威海市':'山东省','日照市':'山东省','临沂市':'山东省','德州市':'山东省','聊城市':'山东省','滨州市':'山东省','菏泽市':'山东省',
+    '石家庄市':'河北省','唐山市':'河北省','秦皇岛市':'河北省','邯郸市':'河北省','邢台市':'河北省','保定市':'河北省','张家口市':'河北省','承德市':'河北省','沧州市':'河北省','廊坊市':'河北省','衡水市':'河北省',
+    '太原市':'山西省','大同市':'山西省','阳泉市':'山西省','长治市':'山西省','晋城市':'山西省','朔州市':'山西省','晋中市':'山西省','运城市':'山西省','忻州市':'山西省','临汾市':'山西省','吕梁市':'山西省',
+    '郑州市':'河南省','开封市':'河南省','洛阳市':'河南省','平顶山市':'河南省','安阳市':'河南省','鹤壁市':'河南省','新乡市':'河南省','焦作市':'河南省','濮阳市':'河南省','许昌市':'河南省','漯河市':'河南省','三门峡市':'河南省','南阳市':'河南省','商丘市':'河南省','信阳市':'河南省','周口市':'河南省','驻马店市':'河南省','济源市':'河南省',
+    '武汉市':'湖北省','黄石市':'湖北省','十堰市':'湖北省','宜昌市':'湖北省','襄阳市':'湖北省','荆州市':'湖北省','随州市':'湖北省',
+    '沈阳市':'辽宁省','大连市':'辽宁省','鞍山市':'辽宁省','抚顺市':'辽宁省','本溪市':'辽宁省','丹东市':'辽宁省','锦州市':'辽宁省','营口市':'辽宁省','阜新市':'辽宁省','辽阳市':'辽宁省','盘锦市':'辽宁省','铁岭市':'辽宁省','朝阳市':'辽宁省','葫芦岛市':'辽宁省',
+    '长春市':'吉林省','吉林市':'吉林省','四平市':'吉林省','辽源市':'吉林省','通化市':'吉林省','白山市':'吉林省','松原市':'吉林省','白城市':'吉林省','延边朝鲜族自治州':'吉林省',
+    '哈尔滨市':'黑龙江省','齐齐哈尔市':'黑龙江省','鸡西市':'黑龙江省','鹤岗市':'黑龙江省','双鸭山市':'黑龙江省','大庆市':'黑龙江省','伊春市':'黑龙江省','佳木斯市':'黑龙江省','七台河市':'黑龙江省','牡丹江市':'黑龙江省','黑河市':'黑龙江省','绥化市':'黑龙江省',
+    '西安市':'陕西省','宝鸡市':'陕西省','咸阳市':'陕西省','渭南市':'陕西省','延安市':'陕西省','汉中市':'陕西省','榆林市':'陕西省','安康市':'陕西省','商洛市':'陕西省',
+    '呼和浩特市':'内蒙古自治区','包头市':'内蒙古自治区','乌海市':'内蒙古自治区','赤峰市':'内蒙古自治区','通辽市':'内蒙古自治区','鄂尔多斯市':'内蒙古自治区','呼伦贝尔市':'内蒙古自治区','巴彦淖尔市':'内蒙古自治区','乌兰察布市':'内蒙古自治区','兴安盟':'内蒙古自治区','锡林郭勒盟':'内蒙古自治区'
+};
+
+const PROVINCE_CENTER = {
+    '北京市':[116.4074,39.9042], '天津市':[117.2000,39.1333], '上海市':[121.4737,31.2304],
+    '江苏省':[118.7632,32.0617], '浙江省':[120.1528,30.2672], '安徽省':[117.2849,31.8612],
+    '山东省':[117.0009,36.6758], '河北省':[114.5025,38.0455], '山西省':[112.5492,37.8570],
+    '河南省':[113.6654,34.7579], '湖北省':[114.3054,30.5931], '辽宁省':[123.4291,41.7968],
+    '吉林省':[125.3245,43.8868], '黑龙江省':[126.6425,45.7560], '陕西省':[108.9480,34.2632],
+    '内蒙古自治区':[111.6708,40.8183]
+};
+
+const MAP_COLORS = ['#1677ff','#13c2c2','#52c41a','#faad14','#eb2f96','#722ed1','#fa541c','#2f54eb','#a0d911','#fa8c16','#08979c','#531dab'];
 
 // ==================== DATA LOADING ====================
 async function loadData() {
@@ -317,6 +472,7 @@ async function loadData() {
                         days: d.days || [],
                         spotCheck: d.spotCheck || false,
                         score: d.score || '',
+                        meetingCity: d.meetingCity || '',
                         updatedAt: payload.updatedAt || ''
                     }));
                 }
@@ -327,6 +483,10 @@ async function loadData() {
 
         renderStats();
         renderFilterOptions();
+        buildProvinceData();
+        renderProvincePanel();
+        renderProvinceMap();
+        ensureChinaMapReady().then(() => renderProvinceMap());
         renderRanking();
         renderRegions();
         document.getElementById('lastUpdate').textContent = '更新时间：' + new Date().toLocaleString('zh-CN');
@@ -336,6 +496,29 @@ async function loadData() {
         document.getElementById('rankingGrid').innerHTML = `<div class="empty">❌ 加载失败：${err.message}</div>`;
         document.getElementById('regionList').innerHTML = `<div class="empty">❌ 加载失败：${err.message}</div>`;
     }
+}
+
+async function ensureChinaMapReady() {
+    if (typeof echarts === 'undefined') return false;
+    if (chinaMapReady) return true;
+    if (chinaMapLoading) return chinaMapLoading;
+
+    chinaMapLoading = fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+        .then(resp => {
+            if (!resp.ok) throw new Error(`map ${resp.status}`);
+            return resp.json();
+        })
+        .then(geoJson => {
+            echarts.registerMap('china', geoJson);
+            chinaMapReady = true;
+            return true;
+        })
+        .catch(err => {
+            console.warn('China map load failed:', err);
+            chinaMapReady = false;
+            return false;
+        });
+    return chinaMapLoading;
 }
 
 // ==================== RENDERING ====================
@@ -426,6 +609,233 @@ function renderRanking() {
             </div>
         `;
     }).join('');
+}
+
+// ==================== 省份地图分配 ====================
+function splitCityNames(cityText) {
+    return String(cityText || '')
+        .split(/[\/、,，\s]+/)
+        .map(x => x.trim())
+        .filter(Boolean);
+}
+
+function normalizeProvinceName(name) {
+    return PROVINCE_ALIASES[name] || name;
+}
+
+function provinceShortName(name) {
+    return name.replace(/省|市|壮族自治区|回族自治区|维吾尔自治区|自治区|特别行政区/g, '');
+}
+
+function inferProvinceFromCity(city) {
+    const raw = String(city || '').trim();
+    if (!raw) return '';
+    const normalized = normalizeProvinceName(raw);
+    if (PROVINCE_CENTER[normalized]) return normalized;
+    if (CITY_PROVINCE_MAP[raw]) return CITY_PROVINCE_MAP[raw];
+    return '';
+}
+
+function buildProvinceData() {
+    const provinceMap = {};
+    const regionMap = {};
+
+    for (const [region, xqList] of Object.entries(allData)) {
+        if (!regionMap[region]) regionMap[region] = new Set();
+        for (const xq of xqList) {
+            const provinces = new Set(splitCityNames(xq.city).map(inferProvinceFromCity).filter(Boolean));
+            for (const province of provinces) {
+                if (!provinceMap[province]) {
+                    provinceMap[province] = {
+                        name: province,
+                        shortName: provinceShortName(province),
+                        regions: new Set(),
+                        xqCount: 0,
+                        shopCount: 0,
+                        xqNames: []
+                    };
+                }
+                provinceMap[province].regions.add(region);
+                provinceMap[province].xqCount += 1;
+                provinceMap[province].shopCount += xq.shopCount || 0;
+                provinceMap[province].xqNames.push(xq.name);
+                regionMap[region].add(province);
+            }
+        }
+    }
+
+    provinceData = Object.values(provinceMap)
+        .map(item => ({
+            ...item,
+            regions: Array.from(item.regions).sort(),
+            xqNames: Array.from(new Set(item.xqNames)).sort()
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+
+    if (!selectedProvince && provinceData.length > 0) selectedProvince = provinceData[0].name;
+    renderRegionProvinceSummary(regionMap);
+}
+
+function getProvinceRegionColor(item) {
+    if (!item || item.regions.length === 0) return '#d1d5db';
+    const region = item.regions[0];
+    const idx = Object.keys(allData).sort().indexOf(region);
+    return MAP_COLORS[(idx >= 0 ? idx : 0) % MAP_COLORS.length];
+}
+
+function getProvinceItem(name) {
+    const normalized = normalizeProvinceName(name);
+    return provinceData.find(p => p.name === normalized || p.shortName === normalized || p.shortName === name);
+}
+
+function renderProvinceMap() {
+    const meta = document.getElementById('mapMeta');
+    const mapEl = document.getElementById('chinaMap');
+    if (!meta || !mapEl) return;
+    meta.textContent = `${Object.keys(allData).length} 个大区 · ${provinceData.length} 个省份`;
+
+    if (typeof echarts === 'undefined' || !chinaMapReady) {
+        mapEl.innerHTML = '<div class="map-fallback">地图加载失败，右侧省份列表仍可分配检查人</div>';
+        return;
+    }
+
+    if (!chinaMapChart) {
+        chinaMapChart = echarts.init(mapEl);
+        chinaMapChart.on('click', params => {
+            const item = getProvinceItem(params.name);
+            if (item) selectProvince(item.name);
+        });
+        window.addEventListener('resize', () => chinaMapChart && chinaMapChart.resize());
+    }
+
+    const mapData = provinceData
+        .map(p => ({
+            name: p.name,
+            value: p.xqCount,
+            province: p.name,
+            inspector: provinceAssignments[p.name] || '',
+            itemStyle: {
+                areaColor: p.name === selectedProvince ? '#fbbf24' : getProvinceRegionColor(p),
+                borderColor: p.name === selectedProvince ? '#92400e' : '#ffffff',
+                borderWidth: p.name === selectedProvince ? 1.5 : 0.8
+            }
+        }));
+
+    chinaMapChart.setOption({
+        tooltip: {
+            trigger: 'item',
+            formatter(params) {
+                const item = getProvinceItem(params.data && params.data.province ? params.data.province : params.name);
+                if (!item) return params.name;
+                const inspector = provinceAssignments[item.name] || '未分配';
+                return `${item.name}<br/>负责大区：${item.regions.join('、')}<br/>小区经理：${item.xqCount} 人<br/>门店：${item.shopCount} 家<br/>检查人：${inspector}`;
+            }
+        },
+        series: [{
+            type: 'map',
+            map: 'china',
+            roam: true,
+            zoom: 1.12,
+            label: {
+                show: true,
+                formatter(params) {
+                    const item = getProvinceItem(params.name);
+                    if (!item) return '';
+                    const inspector = item ? provinceAssignments[item.name] : '';
+                    return inspector ? `${item.shortName}\n${inspector}` : item.shortName;
+                },
+                color: '#111827',
+                fontSize: 10,
+                lineHeight: 14
+            },
+            itemStyle: { areaColor: '#f3f4f6', borderColor: '#d1d5db', borderWidth: 0.6 },
+            emphasis: { itemStyle: { areaColor: '#dbeafe' }, label: { color: '#111827' } },
+            data: mapData
+        }]
+    });
+}
+
+function selectProvince(province) {
+    selectedProvince = province;
+    renderProvincePanel();
+    renderProvinceMap();
+}
+
+function renderProvincePanel() {
+    const detail = document.getElementById('provinceDetail');
+    const list = document.getElementById('provinceList');
+    if (!detail || !list) return;
+
+    if (provinceData.length === 0) {
+        detail.innerHTML = '<div class="empty" style="padding:12px;">暂无省份数据</div>';
+        list.innerHTML = '';
+        return;
+    }
+
+    const current = getProvinceItem(selectedProvince) || provinceData[0];
+    selectedProvince = current.name;
+    const assigned = provinceAssignments[current.name] || '';
+    const inspectorOptions = inspectorList.length === 0
+        ? '<option value="">未导入监察员</option>'
+        : '<option value="">--选择检查人--</option>' + inspectorList.map(name => `<option value="${name}" ${name === assigned ? 'selected' : ''}>${name}</option>`).join('');
+
+    detail.innerHTML = `
+        <h3>${current.name}</h3>
+        <div class="meta-row">
+            ${current.regions.map(r => `<span class="province-chip region">${r}</span>`).join('')}
+            <span class="province-chip">${current.xqCount} 位小区经理</span>
+            <span class="province-chip">${current.shopCount} 家门店</span>
+            ${assigned ? `<span class="province-chip inspector">${assigned}</span>` : '<span class="province-chip">未分配检查人</span>'}
+        </div>
+        <select class="province-select" ${inspectorList.length === 0 ? 'disabled' : ''} onchange="onProvinceInspectorChange('${current.name}', this.value)">
+            ${inspectorOptions}
+        </select>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.5;">涉及小区经理：${current.xqNames.slice(0, 12).join('、')}${current.xqNames.length > 12 ? `等 ${current.xqNames.length} 人` : ''}</div>
+    `;
+
+    list.innerHTML = provinceData.map(p => {
+        const pAssigned = provinceAssignments[p.name] || '未分配';
+        return `<button class="province-row ${p.name === current.name ? 'active' : ''}" onclick="selectProvince('${p.name}')">
+            <div class="province-row-main">
+                <span class="province-name">${p.name}</span>
+                <span class="province-count">${p.xqCount}人 · ${p.shopCount}店</span>
+            </div>
+            <div class="province-row-sub">${p.regions.join('、')} · 检查人：${pAssigned}</div>
+        </button>`;
+    }).join('');
+}
+
+function onProvinceInspectorChange(province, inspector) {
+    if (inspector) provinceAssignments[province] = inspector;
+    else delete provinceAssignments[province];
+    saveInspectorData();
+    renderProvincePanel();
+    renderProvinceMap();
+}
+
+function clearProvinceAssignments() {
+    if (!confirm('确定要清空所有省份检查人分配吗？')) return;
+    provinceAssignments = {};
+    saveInspectorData();
+    renderProvincePanel();
+    renderProvinceMap();
+}
+
+function renderRegionProvinceSummary(regionMap) {
+    const container = document.getElementById('regionProvinceSummary');
+    if (!container) return;
+    const entries = Object.entries(regionMap || {}).sort((a, b) => a[0].localeCompare(b[0], 'zh-CN'));
+    if (entries.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = `<h3>22 个大区负责省份</h3>
+        <div class="region-province-grid">
+            ${entries.map(([region, provinces]) => {
+                const list = Array.from(provinces).sort((a,b)=>a.localeCompare(b,'zh-CN'));
+                return `<div class="region-province-item"><strong>${region}</strong><span>${list.join('、') || '-'}</span></div>`;
+            }).join('')}
+        </div>`;
 }
 
 function renderRegions() {
@@ -530,11 +940,16 @@ function loadInspectorData() {
         const savedAssign = localStorage.getItem('xq-dashboard-assignments');
         if (savedAssign) inspectorAssignments = JSON.parse(savedAssign);
     } catch(e) {}
+    try {
+        const savedProvinceAssign = localStorage.getItem('xq-dashboard-province-assignments');
+        if (savedProvinceAssign) provinceAssignments = JSON.parse(savedProvinceAssign);
+    } catch(e) {}
 }
 
 function saveInspectorData() {
     localStorage.setItem('xq-dashboard-inspectors', JSON.stringify(inspectorList));
     localStorage.setItem('xq-dashboard-assignments', JSON.stringify(inspectorAssignments));
+    localStorage.setItem('xq-dashboard-province-assignments', JSON.stringify(provinceAssignments));
 }
 
 function toggleImportArea() {
@@ -551,6 +966,8 @@ function importInspectors() {
     saveInspectorData();
     renderInspectorTags();
     renderRegions();
+    renderProvincePanel();
+    renderProvinceMap();
     document.getElementById('importArea').classList.remove('show');
     document.getElementById('inspectorInput').value = '';
 }
@@ -563,13 +980,20 @@ function removeInspector(name) {
             delete inspectorAssignments[key];
         }
     }
+    for (const key in provinceAssignments) {
+        if (provinceAssignments[key] === name) {
+            delete provinceAssignments[key];
+        }
+    }
     saveInspectorData();
     renderInspectorTags();
     renderRegions();
+    renderProvincePanel();
+    renderProvinceMap();
 }
 
 function clearAllInspectors() {
-    if (!confirm('确定要清空所有检查人分配吗？')) return;
+    if (!confirm('确定要清空所有小区经理检查人分配吗？省份分配会保留。')) return;
     inspectorAssignments = {};
     saveInspectorData();
     renderRegions();
