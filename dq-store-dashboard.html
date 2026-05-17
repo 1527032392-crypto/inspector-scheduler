@@ -16306,7 +16306,7 @@ const STORE_DATA = {
   ]
 };
 
-let allData = {}; // xqName -> [{ name, shopName, city, district, day }, ...]
+let allData = {}; // xqName -> [{ name, shopName, city, district, day, scheduledTime }, ...]
 
 // Init region filter
 const filterSel = document.getElementById('filterRegion');
@@ -16339,6 +16339,7 @@ async function loadData() {
                     allData[xq] = payload.data.map(d => ({
                         name: d.name, shopName: d.shopName, city: d.city || '',
                         district: d.district || '', day: d.day !== null && d.day !== undefined ? d.day : null,
+                        scheduledTime: d.scheduledTime || '',
                         spotCheck: d.spotCheck || false
                     }));
                 }
@@ -16421,7 +16422,7 @@ function renderXqList(region) {
 function renderTable(stores) {
     return `<table>
         <thead><tr>
-            <th>店长</th><th>门店</th><th>城市</th><th>培训日</th><th>小区抽检</th><th>状态</th>
+            <th>店长</th><th>门店</th><th>城市</th><th>培训日</th><th>培训时间</th><th>小区抽检</th><th>状态</th>
         </tr></thead>
         <tbody>
             ${stores.map(s => `<tr>
@@ -16429,6 +16430,7 @@ function renderTable(stores) {
                 <td style="font-size:12px; color:#666; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${s.shopName}">${s.shopName}</td>
                 <td>${s.city || '-'}</td>
                 <td>${s.day !== null ? `<span class="badge badge-blue">${DAY_NAMES[s.day]} ${DAY_DATES[s.day]}</span>` : '--'}</td>
+                <td>${s.day !== null && s.scheduledTime ? `<span class="badge badge-blue">${s.scheduledTime}</span>` : '--'}</td>
                 <td>${s.spotCheck ? '<span class="badge badge-orange">✓ 抽检</span>' : '--'}</td>
                 <td>${s.day !== null ? '<span class="badge badge-green">已排期</span>' : '<span class="badge badge-orange">未排期</span>'}</td>
             </tr>`).join('')}
