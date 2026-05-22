@@ -119,6 +119,29 @@ const GITHUB_API = `https://api.github.com/repos/${GITHUB_REPO}/issues`;
 const ISSUE_LABEL = 'store-scheduler-data';
 const DAY_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const DAY_DATES = ['5/25', '5/26', '5/27', '5/28', '5/29'];
+
+async function fetchAllSchedulerIssues() {
+    let page = 1;
+    let allIssues = [];
+    while (true) {
+        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=all&per_page=100&page=${page}`, {
+            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
+        const issues = await resp.json();
+        if (issues.length === 0) break;
+        allIssues = allIssues.concat(issues);
+        if (issues.length < 100) break;
+        page++;
+    }
+    return allIssues;
+}
+
+function isNewerIssue(issue, existing) {
+    if (!existing) return true;
+    return new Date(issue.updated_at || issue.created_at || 0) > new Date(existing.updated_at || existing.created_at || 0);
+}
+
 const STORE_DATA = {
   "付钟庆": [
     {
@@ -16319,19 +16342,18 @@ for (const r of Object.keys(STORE_DATA).sort()) {
 async function loadData() {
     const region = document.getElementById('filterRegion').value;
     try {
-        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=all&per_page=100`, {
-            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
-        });
-        if (!resp.ok) throw new Error(`GitHub API error: ${resp.status}`);
-        const issues = await resp.json();
+        const issues = await fetchAllSchedulerIssues();
 
         allData = {};
+        const latestByXq = {};
         for (const issue of issues) {
             const match = issue.title.match(/\[店长排期\]\s*(.+)\s*\/\s*(.+)/);
             if (!match) continue;
             const r = match[1].trim();
             const xq = match[2].trim();
             if (region && r !== region) continue;
+            if (!isNewerIssue(issue, latestByXq[xq])) continue;
+            latestByXq[xq] = issue;
 
             try {
                 const payload = JSON.parse(issue.body);

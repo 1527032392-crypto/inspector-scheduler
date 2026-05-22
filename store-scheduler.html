@@ -246,6 +246,29 @@ const DAY_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '
 const DAY_DATES = ['5/25', '5/26', '5/27', '5/28', '5/29'];
 const DAY_NUMS = [0, 1, 2, 3, 4]; // Sun=0, Mon=1, ..., Thu=4
 
+async function fetchAllSchedulerIssues() {
+    let page = 1;
+    let allIssues = [];
+    while (true) {
+        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=all&per_page=100&page=${page}`, {
+            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (!resp.ok) throw new Error(`GitHub API ${resp.status}`);
+        const issues = await resp.json();
+        if (issues.length === 0) break;
+        allIssues = allIssues.concat(issues);
+        if (issues.length < 100) break;
+        page++;
+    }
+    return allIssues;
+}
+
+function findLatestIssueByTitle(issues, title) {
+    return issues
+        .filter(issue => issue.title === title)
+        .sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0))[0];
+}
+
 // ==================== DATA ====================
 const STORE_DATA = {
   "付钟庆": [
@@ -16542,14 +16565,9 @@ async function saveData() {
 
         // Check if issue exists
         let issueNumber = null;
-        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=all&per_page=100`, {
-            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
-        });
-        if (resp.ok) {
-            const issues = await resp.json();
-            const existing = issues.find(i => i.title === issueTitle);
-            if (existing) issueNumber = existing.number;
-        }
+        const issues = await fetchAllSchedulerIssues();
+        const existing = findLatestIssueByTitle(issues, issueTitle);
+        if (existing) issueNumber = existing.number;
 
         const url = issueNumber ? `${GITHUB_API}/${issueNumber}` : GITHUB_API;
         const method = issueNumber ? 'PATCH' : 'POST';
@@ -16578,12 +16596,8 @@ async function saveData() {
 async function loadCloudData() {
     try {
         const issueTitle = `[店长排期] ${currentRegion} / ${currentXqName}`;
-        const resp = await fetch(`${GITHUB_API}?labels=${ISSUE_LABEL}&state=all&per_page=100`, {
-            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
-        });
-        if (!resp.ok) return;
-        const issues = await resp.json();
-        const issue = issues.find(i => i.title === issueTitle);
+        const issues = await fetchAllSchedulerIssues();
+        const issue = findLatestIssueByTitle(issues, issueTitle);
         if (!issue) { renderAll(); return; }
 
         const payload = JSON.parse(issue.body);
